@@ -254,6 +254,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return assignmentCount < minRequired;
   };
 
+  // Calculate worked hours for an employee in the current week
+  const calculateWeeklyHours = (employeeId: string): number => {
+    let totalHours = 0;
+    const HOURS_PER_SHIFT = 8;
+
+    weekSchedule.forEach(day => {
+      AREAS.forEach(area => {
+        SHIFT_TYPES.forEach(shift => {
+          const assignments = day.shifts[area]?.[shift];
+          if (assignments?.some(a => a.employeeId === employeeId)) {
+            totalHours += HOURS_PER_SHIFT;
+          }
+        });
+      });
+    });
+
+    return totalHours;
+  };
+
+  // Determine if employee has met their weekly hours requirement
+  const getHoursStatus = (employeeId: string, targetHours?: number): 'fulfilled' | 'under' | 'over' | 'no-target' => {
+    if (!targetHours) return 'no-target';
+    
+    const workedHours = calculateWeeklyHours(employeeId);
+    
+    if (workedHours >= targetHours) return 'fulfilled';
+    if (workedHours < targetHours) return 'under';
+    return 'no-target';
+  };
+
   // Drag and Drop handlers
   const handleDragStart = (
     e: React.DragEvent,
@@ -772,38 +802,70 @@ export const AdminView: React.FC<AdminViewProps> = ({
       <div className="employees-list">
         <h3>Mitarbeiter-Übersicht ({employees.length})</h3>
         <div className="employee-details-grid">
-          {employees.map(emp => (
-            <div key={emp.id} className="employee-detail-card">
-              <div className="emp-card-header">
-                <h4>{emp.firstName} {emp.lastName}</h4>
-                <span className="emp-id">ID: {emp.id.slice(-4)}</span>
-              </div>
-              <div className="emp-card-body">
-                <div className="emp-info-row">
-                  <span className="emp-label">📍 Bereiche:</span>
-                  <span className="emp-value">{emp.areas.join(', ')}</span>
+          {employees.map(emp => {
+            const workedHours = calculateWeeklyHours(emp.id);
+            const hoursStatus = getHoursStatus(emp.id, emp.weeklyHours);
+            
+            return (
+              <div key={emp.id} className={`employee-detail-card hours-${hoursStatus}`}>
+                <div className="emp-card-header">
+                  <h4>{emp.firstName} {emp.lastName}</h4>
+                  <span className="emp-id">ID: {emp.id.slice(-4)}</span>
                 </div>
-                {emp.phone && (
+                <div className="emp-card-body">
                   <div className="emp-info-row">
-                    <span className="emp-label">📞 Telefon:</span>
-                    <span className="emp-value">{emp.phone}</span>
+                    <span className="emp-label">📍 Bereiche:</span>
+                    <span className="emp-value">{emp.areas.join(', ')}</span>
                   </div>
-                )}
-                {emp.email && (
-                  <div className="emp-info-row">
-                    <span className="emp-label">✉️ E-Mail:</span>
-                    <span className="emp-value">{emp.email}</span>
-                  </div>
-                )}
-                {emp.weeklyHours && (
-                  <div className="emp-info-row">
+                  
+                  {/* Weekly Hours Status */}
+                  <div className="emp-info-row hours-row">
                     <span className="emp-label">⏱️ Wochenstunden:</span>
-                    <span className="emp-value">{emp.weeklyHours}h</span>
+                    <span className="emp-value hours-value">
+                      <strong>{workedHours}h</strong>
+                      {emp.weeklyHours && (
+                        <>
+                          {' / '}
+                          <span className="target-hours">{emp.weeklyHours}h</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  
+                  {emp.weeklyHours && (
+                    <div className="hours-progress">
+                      <div 
+                        className={`progress-bar ${hoursStatus}`}
+                        style={{ width: `${Math.min((workedHours / emp.weeklyHours) * 100, 100)}%` }}
+                      />
+                    </div>
+                  )}
+                  
+                  {emp.phone && (
+                    <div className="emp-info-row">
+                      <span className="emp-label">📞 Telefon:</span>
+                      <span className="emp-value">{emp.phone}</span>
+                    </div>
+                  )}
+                  {emp.email && (
+                    <div className="emp-info-row">
+                      <span className="emp-label">✉️ E-Mail:</span>
+                      <span className="emp-value">{emp.email}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {hoursStatus === 'fulfilled' && (
+                  <div className="status-badge fulfilled">✅ Soll erfüllt</div>
+                )}
+                {hoursStatus === 'under' && emp.weeklyHours && (
+                  <div className="status-badge under">
+                    ⚠️ {emp.weeklyHours - workedHours}h fehlen
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
