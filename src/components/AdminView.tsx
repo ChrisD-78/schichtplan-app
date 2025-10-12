@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee, ShiftAssignment } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee } from '../types';
 
 interface AdminViewProps {
   schedule: DaySchedule[];

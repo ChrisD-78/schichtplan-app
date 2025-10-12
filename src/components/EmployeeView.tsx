@@ -107,7 +107,7 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
       <div className="employee-header">
         <h1>👤 Meine Schichten</h1>
         <div className="employee-name">
-          {currentEmployee?.name || 'Mitarbeiter'}
+          {currentEmployee ? `${currentEmployee.firstName} ${currentEmployee.lastName}` : 'Mitarbeiter'}
         </div>
       </div>
 

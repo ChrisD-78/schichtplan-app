@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminView } from './components/AdminView';
 import { EmployeeView } from './components/EmployeeView';
 import { DaySchedule, Employee } from './types';
@@ -20,15 +20,6 @@ const getMondayOfWeek = (date: Date): Date => {
   return new Date(d.setDate(diff));
 };
 
-// Helper function to format week identifier (e.g., "2025-W42")
-const getWeekIdentifier = (monday: Date): string => {
-  const year = monday.getFullYear();
-  const start = new Date(year, 0, 1);
-  const diff = monday.getTime() - start.getTime();
-  const oneWeek = 1000 * 60 * 60 * 24 * 7;
-  const weekNumber = Math.ceil(diff / oneWeek);
-  return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
-};
 
 // Initial demo data - creates a week schedule from Monday to Sunday
 const getInitialSchedule = (): DaySchedule[] => {
@@ -215,7 +206,7 @@ function App() {
             >
               {employees.map(emp => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.name}
+                  {emp.firstName} {emp.lastName}
                 </option>
               ))}
             </select>
