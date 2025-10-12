@@ -55,6 +55,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
 }) => {
   const [newEmployeeFirstName, setNewEmployeeFirstName] = useState('');
   const [newEmployeeLastName, setNewEmployeeLastName] = useState('');
+  const [newEmployeePhone, setNewEmployeePhone] = useState('');
+  const [newEmployeeEmail, setNewEmployeeEmail] = useState('');
+  const [newEmployeeWeeklyHours, setNewEmployeeWeeklyHours] = useState<string>('');
   const [newEmployeeAreas, setNewEmployeeAreas] = useState<AreaType[]>([]);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
@@ -111,7 +114,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
       id: Date.now().toString(),
       firstName: newEmployeeFirstName.trim(),
       lastName: newEmployeeLastName.trim(),
-      areas: [...newEmployeeAreas]
+      areas: [...newEmployeeAreas],
+      phone: newEmployeePhone.trim() || undefined,
+      email: newEmployeeEmail.trim() || undefined,
+      weeklyHours: newEmployeeWeeklyHours ? parseFloat(newEmployeeWeeklyHours) : undefined
     };
     
     const updatedEmployees = [...employees, newEmployee];
@@ -119,6 +125,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     
     setNewEmployeeFirstName('');
     setNewEmployeeLastName('');
+    setNewEmployeePhone('');
+    setNewEmployeeEmail('');
+    setNewEmployeeWeeklyHours('');
     setNewEmployeeAreas([]);
     setShowEmployeeForm(false);
     setValidationMessage(`✅ ${newEmployee.firstName} ${newEmployee.lastName} wurde hinzugefügt (${newEmployee.areas.join(', ')})!`);
@@ -500,25 +509,61 @@ export const AdminView: React.FC<AdminViewProps> = ({
           {showEmployeeForm && (
             <div className="employee-form-extended">
               <h4>Neuen Mitarbeiter hinzufügen</h4>
-              <div className="name-inputs">
-                <input
-                  type="text"
-                  value={newEmployeeFirstName}
-                  onChange={(e) => setNewEmployeeFirstName(e.target.value)}
-                  placeholder="Vorname"
-                  className="input-employee"
-                />
-                <input
-                  type="text"
-                  value={newEmployeeLastName}
-                  onChange={(e) => setNewEmployeeLastName(e.target.value)}
-                  placeholder="Nachname"
-                  className="input-employee"
-                  onKeyPress={(e) => e.key === 'Enter' && addEmployee()}
-                />
+              
+              <div className="form-section">
+                <label>Persönliche Daten:</label>
+                <div className="name-inputs">
+                  <input
+                    type="text"
+                    value={newEmployeeFirstName}
+                    onChange={(e) => setNewEmployeeFirstName(e.target.value)}
+                    placeholder="Vorname *"
+                    className="input-employee"
+                    required
+                  />
+                  <input
+                    type="text"
+                    value={newEmployeeLastName}
+                    onChange={(e) => setNewEmployeeLastName(e.target.value)}
+                    placeholder="Nachname *"
+                    className="input-employee"
+                    required
+                  />
+                </div>
               </div>
+
+              <div className="form-section">
+                <label>Kontaktdaten:</label>
+                <div className="contact-inputs">
+                  <input
+                    type="tel"
+                    value={newEmployeePhone}
+                    onChange={(e) => setNewEmployeePhone(e.target.value)}
+                    placeholder="Telefonnummer"
+                    className="input-employee"
+                  />
+                  <input
+                    type="email"
+                    value={newEmployeeEmail}
+                    onChange={(e) => setNewEmployeeEmail(e.target.value)}
+                    placeholder="E-Mail"
+                    className="input-employee"
+                  />
+                  <input
+                    type="number"
+                    value={newEmployeeWeeklyHours}
+                    onChange={(e) => setNewEmployeeWeeklyHours(e.target.value)}
+                    placeholder="Wochenarbeitsstunden"
+                    className="input-employee"
+                    min="0"
+                    max="60"
+                    step="0.5"
+                  />
+                </div>
+              </div>
+              
               <div className="area-assignment">
-                <label>Einsatzbereiche (max. 4):</label>
+                <label>Einsatzbereiche (max. 4) *:</label>
                 <div className="area-selector">
                   {AREAS.map(area => (
                     <button
@@ -532,7 +577,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                 </div>
               </div>
-              <button onClick={addEmployee} className="btn-add-employee">Hinzufügen</button>
+              <button onClick={addEmployee} className="btn-add-employee">Mitarbeiter hinzufügen</button>
             </div>
           )}
         </div>
@@ -725,12 +770,38 @@ export const AdminView: React.FC<AdminViewProps> = ({
       </div>
 
       <div className="employees-list">
-        <h3>Mitarbeiter ({employees.length})</h3>
-        <div className="employee-tags">
+        <h3>Mitarbeiter-Übersicht ({employees.length})</h3>
+        <div className="employee-details-grid">
           {employees.map(emp => (
-            <div key={emp.id} className="employee-card">
-              <span className="emp-name">{emp.firstName} {emp.lastName}</span>
-              <span className="emp-areas">{emp.areas.join(', ')}</span>
+            <div key={emp.id} className="employee-detail-card">
+              <div className="emp-card-header">
+                <h4>{emp.firstName} {emp.lastName}</h4>
+                <span className="emp-id">ID: {emp.id.slice(-4)}</span>
+              </div>
+              <div className="emp-card-body">
+                <div className="emp-info-row">
+                  <span className="emp-label">📍 Bereiche:</span>
+                  <span className="emp-value">{emp.areas.join(', ')}</span>
+                </div>
+                {emp.phone && (
+                  <div className="emp-info-row">
+                    <span className="emp-label">📞 Telefon:</span>
+                    <span className="emp-value">{emp.phone}</span>
+                  </div>
+                )}
+                {emp.email && (
+                  <div className="emp-info-row">
+                    <span className="emp-label">✉️ E-Mail:</span>
+                    <span className="emp-value">{emp.email}</span>
+                  </div>
+                )}
+                {emp.weeklyHours && (
+                  <div className="emp-info-row">
+                    <span className="emp-label">⏱️ Wochenstunden:</span>
+                    <span className="emp-value">{emp.weeklyHours}h</span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

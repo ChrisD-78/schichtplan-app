@@ -6,6 +6,9 @@ export interface Employee {
   firstName: string;
   lastName: string;
   areas: AreaType[]; // Assigned work areas (max 4)
+  phone?: string;
+  email?: string;
+  weeklyHours?: number;
 }
 
 export interface ShiftAssignment {
