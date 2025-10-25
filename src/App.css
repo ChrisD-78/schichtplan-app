@@ -18,6 +18,8 @@
   position: sticky;
   top: 0;
   z-index: 100;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .nav-buttons {
@@ -35,6 +37,9 @@
   transition: all 0.3s ease;
   background: #f0f0f0;
   color: #333;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .nav-btn.active {
@@ -62,6 +67,9 @@
   background: white;
   cursor: pointer;
   min-width: 150px;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .main-content {
@@ -174,6 +182,9 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-toggle-form:hover {
@@ -283,6 +294,9 @@
   border: 2px solid #e0e0e0;
   border-radius: 12px;
   font-size: 1rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-add-employee {
@@ -293,6 +307,9 @@
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-bulk-assignment {
@@ -304,6 +321,9 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-bulk-assignment:hover {
@@ -340,6 +360,9 @@
 .area-table-wrapper {
   overflow-x: auto;
   border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  position: relative;
 }
 
 .week-table {
@@ -1125,6 +1148,8 @@
   .nav-btn {
     padding: 0.6rem 1rem;
     font-size: 0.9rem;
+    min-height: 44px; /* iOS touch target size */
+    touch-action: manipulation;
   }
 
   .main-content {
@@ -1157,6 +1182,8 @@
     width: 100%;
     padding: 0.6rem 1rem;
     font-size: 0.85rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .area-section {
@@ -1169,13 +1196,13 @@
   }
 
   .week-table {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     min-width: 100%;
   }
 
   .week-table th {
     padding: 0.4rem 0.2rem;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
 
   .week-table td {
@@ -1208,23 +1235,48 @@
   }
 
   .assignment-tag {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 12px;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    touch-action: manipulation;
   }
 
   .drag-handle {
     font-size: 0.7rem;
+    touch-action: none;
   }
 
   .employee-select {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     padding: 0.25rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .area-table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    scroll-behavior: smooth;
+    position: relative;
+  }
+
+  .area-table-wrapper::after {
+    content: "← Scrollen für mehr →";
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0.7;
   }
 
   .area-section {
@@ -1260,6 +1312,8 @@
   .employee-dropdown {
     font-size: 0.85rem;
     min-width: 140px;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .employees-list {
@@ -1317,16 +1371,22 @@
 
   .date-input {
     width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .weekday-btn {
     padding: 0.6rem 0.75rem;
     min-width: 45px;
     font-size: 0.85rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .bulk-select {
     width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .employee-multi-select {
@@ -1337,6 +1397,8 @@
   .employee-select-btn {
     padding: 0.5rem 0.75rem;
     font-size: 0.85rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .bulk-actions {
@@ -1346,10 +1408,33 @@
   .btn-bulk-submit {
     width: 100%;
     min-width: auto;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .btn-bulk-cancel {
     width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Touch-friendly buttons */
+  .btn-toggle-form,
+  .btn-bulk-assignment,
+  .btn-add-employee {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .area-btn {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .btn-remove {
+    min-width: 32px;
+    min-height: 32px;
+    touch-action: manipulation;
   }
 }
 
@@ -1362,6 +1447,8 @@
     flex: 1;
     padding: 0.6rem 0.75rem;
     font-size: 0.85rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .employee-selector {
@@ -1370,10 +1457,12 @@
 
   .employee-dropdown {
     width: 100%;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .week-table {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     min-width: 100%;
   }
 
@@ -1419,30 +1508,41 @@
   }
 
   .assignment-tag {
-    font-size: 0.6rem;
-    padding: 0.15rem 0.35rem;
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
     border-radius: 10px;
     gap: 0.3rem;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    touch-action: manipulation;
   }
 
   .drag-handle {
     font-size: 0.65rem;
+    touch-action: none;
   }
 
   .btn-remove {
-    width: 14px;
-    height: 14px;
+    width: 32px;
+    height: 32px;
     font-size: 0.6rem;
-    min-width: 14px;
+    min-width: 32px;
+    min-height: 32px;
+    touch-action: manipulation;
   }
 
   .employee-select {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     padding: 0.2rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .area-table-wrapper {
     border-radius: 6px;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
   }
 
   .week-table th:first-child,
@@ -1465,11 +1565,33 @@
     padding: 0.5rem 0.6rem;
     min-width: 40px;
     font-size: 0.75rem;
+    min-height: 44px;
+    touch-action: manipulation;
   }
 
   .btn-bulk-assignment {
     padding: 0.6rem 1rem;
     font-size: 0.85rem;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Additional mobile improvements */
+  .input-employee {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .btn-toggle-form,
+  .btn-bulk-assignment,
+  .btn-add-employee {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .area-btn {
+    min-height: 44px;
+    touch-action: manipulation;
   }
 }
 
