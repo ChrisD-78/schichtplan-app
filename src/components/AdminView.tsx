@@ -106,6 +106,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Drag state for employee view
   const [draggedShiftType, setDraggedShiftType] = useState<ShiftType | SpecialStatus | null>(null);
   const [hoveredDropCell, setHoveredDropCell] = useState<{employeeId: string, dateStr: string} | null>(null);
+  const [draggedShiftFromCell, setDraggedShiftFromCell] = useState<{employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus} | null>(null);
   
   // Multi-day assignment state
   const [multiDayMode, setMultiDayMode] = useState(false);
@@ -502,6 +503,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return dayNames[date.getDay()];
   };
 
+  // Convert shift abbreviation to ShiftType or SpecialStatus
+  const getShiftTypeFromAbbreviation = (abbrev: string): ShiftType | SpecialStatus | null => {
+    if (abbrev === 'F') return 'Frühschicht';
+    if (abbrev === 'M') return 'Mittelschicht';
+    if (abbrev === 'S') return 'Spätschicht';
+    if (abbrev === 'U') return 'Urlaub';
+    if (abbrev === 'K') return 'Krank';
+    return null;
+  };
+
   // Get Monday of a week from any date in that week
   const getMondayOfWeek = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -719,9 +730,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     );
   };
 
-  // Drag & Drop handlers for employee view
+  // Drag & Drop handlers for employee view (from palette)
   const handleEmployeeViewDragStart = (e: React.DragEvent, shiftType: ShiftType | SpecialStatus) => {
     setDraggedShiftType(shiftType);
+    setDraggedShiftFromCell(null); // Clear shift-from-cell when dragging from palette
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', shiftType);
     
@@ -733,6 +745,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
     setDraggedShiftType(null);
+    setDraggedShiftFromCell(null);
+    setHoveredDropCell(null);
+  };
+
+  // Drag handler for shifts from table cells
+  const handleShiftDragStart = (e: React.DragEvent, employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus) => {
+    setDraggedShiftFromCell({ employeeId, dateStr, shiftType });
+    setDraggedShiftType(shiftType);
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', `shift:${employeeId}:${dateStr}:${shiftType}`);
+    
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = '0.5';
+  };
+
+  const handleShiftDragEnd = (e: React.DragEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = '1';
+    setDraggedShiftType(null);
+    setDraggedShiftFromCell(null);
     setHoveredDropCell(null);
   };
 
@@ -740,11 +772,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setHoveredDropCell({ employeeId, dateStr });
-    
-    // If multi-day mode is active and we're hovering over a selected day, highlight all selected days
-    if (multiDayMode && selectedDays.size > 0 && selectedDays.has(dateStr)) {
-      // Keep hoveredDropCell set to show feedback
-    }
   };
 
   const handleEmployeeViewDragLeave = (e: React.DragEvent) => {
@@ -759,47 +786,74 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleEmployeeViewDrop = (e: React.DragEvent, employeeId: string, dateStr: string) => {
     e.preventDefault();
     
-    if (!draggedShiftType) return;
+    // Check if we have either a shift type from palette or from table cell
+    if (!draggedShiftType && !draggedShiftFromCell) return;
 
-    // If multi-day mode is active and days are selected, assign to all selected days
-    if (multiDayMode && selectedDays.size > 0) {
-      // Filter selected days to only include dates for the same employee (if needed)
-      // For now, we'll use all selected days regardless of employee
-      const daysToAssign = selectedDays.has(dateStr) 
-        ? Array.from(selectedDays) 
-        : [...Array.from(selectedDays), dateStr];
+    // If dragging a shift from a table cell (copying)
+    if (draggedShiftFromCell) {
+      const { employeeId: sourceEmployeeId, dateStr: sourceDateStr, shiftType } = draggedShiftFromCell;
       
-      // Assign to all selected days for this employee
-      daysToAssign.forEach(dayDate => {
-        assignShiftToEmployee(employeeId, dayDate, draggedShiftType);
-      });
-      
-      setValidationMessage(`✅ ${draggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
-      setTimeout(() => setValidationMessage(null), 3000);
-      
-      setSelectedDays(new Set());
-      setMultiDayMode(false);
-    } else {
-      // Check if dropping on existing shift (remove it)
-      const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
-      if (currentShifts.length > 0) {
-        // If dropping same type, remove it; otherwise replace
-        const shiftTypeStr = draggedShiftType === 'Frühschicht' ? 'F' :
-                            draggedShiftType === 'Mittelschicht' ? 'M' :
-                            draggedShiftType === 'Spätschicht' ? 'S' :
-                            draggedShiftType === 'Urlaub' ? 'U' : 'K';
+      // If multi-day mode is active and days are selected, copy to all selected days
+      if (multiDayMode && selectedDays.size > 0) {
+        const daysToAssign = Array.from(selectedDays);
+        daysToAssign.forEach(dayDate => {
+          assignShiftToEmployee(employeeId, dayDate, shiftType);
+        });
         
-        if (currentShifts.includes(shiftTypeStr)) {
-          removeShiftFromEmployee(employeeId, dateStr);
+        setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} auf ${daysToAssign.length} Tag(e) kopiert!`);
+        setTimeout(() => setValidationMessage(null), 3000);
+        
+        setSelectedDays(new Set());
+        setMultiDayMode(false);
+      } else {
+        // Copy to single day
+        assignShiftToEmployee(employeeId, dateStr, shiftType);
+        setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} nach ${new Date(dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} kopiert!`);
+        setTimeout(() => setValidationMessage(null), 3000);
+      }
+    } else {
+      // Dragging from palette (new assignment)
+      // If multi-day mode is active and days are selected, assign to all selected days
+      if (multiDayMode && selectedDays.size > 0) {
+        // Filter selected days to only include dates for the same employee (if needed)
+        // For now, we'll use all selected days regardless of employee
+        const daysToAssign = selectedDays.has(dateStr) 
+          ? Array.from(selectedDays) 
+          : [...Array.from(selectedDays), dateStr];
+        
+        // Assign to all selected days for this employee
+        daysToAssign.forEach(dayDate => {
+          assignShiftToEmployee(employeeId, dayDate, draggedShiftType);
+        });
+        
+        setValidationMessage(`✅ ${draggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
+        setTimeout(() => setValidationMessage(null), 3000);
+        
+        setSelectedDays(new Set());
+        setMultiDayMode(false);
+      } else {
+        // Check if dropping on existing shift (remove it)
+        const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
+        if (currentShifts.length > 0) {
+          // If dropping same type, remove it; otherwise replace
+          const shiftTypeStr = draggedShiftType === 'Frühschicht' ? 'F' :
+                              draggedShiftType === 'Mittelschicht' ? 'M' :
+                              draggedShiftType === 'Spätschicht' ? 'S' :
+                              draggedShiftType === 'Urlaub' ? 'U' : 'K';
+          
+          if (currentShifts.includes(shiftTypeStr)) {
+            removeShiftFromEmployee(employeeId, dateStr);
+          } else {
+            assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
+          }
         } else {
           assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
         }
-      } else {
-        assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
       }
     }
 
     setDraggedShiftType(null);
+    setDraggedShiftFromCell(null);
     setHoveredDropCell(null);
   };
 
@@ -1413,7 +1467,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         const isKrank = shifts.includes('K');
                         const isSelected = selectedDays.has(day.date);
                         const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === day.date;
-                        const isInSelectedGroup = isSelected && selectedDays.size > 0 && draggedShiftType;
+                        const isInSelectedGroup = isSelected && selectedDays.size > 0 && (draggedShiftType || draggedShiftFromCell);
                         
                         const dateDisplay = new Date(day.date).toLocaleDateString('de-DE', { 
                           weekday: 'short', 
@@ -1422,16 +1476,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         });
                         
                         let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
-                        if (isHovered && draggedShiftType) {
-                          cellTitle = `${draggedShiftType} zuweisen: ${dateDisplay}`;
+                        const currentShiftType = draggedShiftFromCell?.shiftType || draggedShiftType;
+                        if (isHovered && currentShiftType) {
+                          if (draggedShiftFromCell) {
+                            const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                            cellTitle = `${currentShiftType} von ${sourceDate} nach ${dateDisplay} kopieren`;
+                          } else {
+                            cellTitle = `${currentShiftType} zuweisen: ${dateDisplay}`;
+                          }
                         } else if (isInSelectedGroup) {
-                          cellTitle = `${draggedShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                          if (draggedShiftFromCell) {
+                            const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                            cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedDays.size} ausgewählte Tage kopiert`;
+                          } else {
+                            cellTitle = `${currentShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                          }
                         }
                         
                         return (
                           <td 
                             key={day.date} 
-                            className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
                             onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
                             onDragLeave={handleEmployeeViewDragLeave}
                             onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
@@ -1440,7 +1505,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           >
                             {hasShift ? (
                               <div className="shift-abbreviations">
-                                {shifts.join(' ')}
+                                {shifts.map((shiftAbbrev, idx) => {
+                                  const shiftType = getShiftTypeFromAbbreviation(shiftAbbrev);
+                                  if (!shiftType) return <span key={idx}>{shiftAbbrev} </span>;
+                                  
+                                  return (
+                                    <span
+                                      key={idx}
+                                      draggable
+                                      onDragStart={(e) => handleShiftDragStart(e, employee.id, day.date, shiftType)}
+                                      onDragEnd={handleShiftDragEnd}
+                                      className="shift-abbreviation-draggable"
+                                      title={`${shiftType} ziehen zum Kopieren`}
+                                    >
+                                      {shiftAbbrev}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             ) : (
                               <span className="no-shift">—</span>
@@ -1511,7 +1592,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           
                           const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === dateStr;
                           const isSelectedAndDragging = isSelected && draggedShiftType && multiDayMode;
-                          const isInSelectedGroup = isSelected && selectedDays.size > 0 && draggedShiftType;
+                          const isInSelectedGroup = isSelected && selectedDays.size > 0 && (draggedShiftType || draggedShiftFromCell);
                           const dateDisplay = new Date(dateStr).toLocaleDateString('de-DE', { 
                             weekday: 'short', 
                             day: '2-digit', 
@@ -1520,16 +1601,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           
                           // Determine title based on state
                           let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
-                          if (isHovered && draggedShiftType) {
-                            cellTitle = `${draggedShiftType} zuweisen: ${dateDisplay}`;
+                          const currentShiftType = draggedShiftFromCell?.shiftType || draggedShiftType;
+                          if (isHovered && currentShiftType) {
+                            if (draggedShiftFromCell) {
+                              const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                              cellTitle = `${currentShiftType} von ${sourceDate} nach ${dateDisplay} kopieren`;
+                            } else {
+                              cellTitle = `${currentShiftType} zuweisen: ${dateDisplay}`;
+                            }
                           } else if (isInSelectedGroup) {
-                            cellTitle = `${draggedShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                            if (draggedShiftFromCell) {
+                              const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                              cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedDays.size} ausgewählte Tage kopiert`;
+                            } else {
+                              cellTitle = `${currentShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                            }
                           }
                           
                           return (
                             <td 
                               key={dateStr} 
-                              className={`employee-shift-cell-month ${draggedShiftType ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
                               onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}
                               onDragLeave={handleEmployeeViewDragLeave}
                               onDrop={(e) => handleEmployeeViewDrop(e, employee.id, dateStr)}
@@ -1538,7 +1630,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             >
                               {hasShift ? (
                                 <div className="shift-abbreviations-small">
-                                  {shifts.join(' ')}
+                                  {shifts.map((shiftAbbrev, idx) => {
+                                    const shiftType = getShiftTypeFromAbbreviation(shiftAbbrev);
+                                    if (!shiftType) return <span key={idx}>{shiftAbbrev} </span>;
+                                    
+                                    return (
+                                      <span
+                                        key={idx}
+                                        draggable
+                                        onDragStart={(e) => handleShiftDragStart(e, employee.id, dateStr, shiftType)}
+                                        onDragEnd={handleShiftDragEnd}
+                                        className="shift-abbreviation-draggable-small"
+                                        title={`${shiftType} ziehen zum Kopieren`}
+                                      >
+                                        {shiftAbbrev}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               ) : (
                                 <span className="no-shift-small">—</span>
