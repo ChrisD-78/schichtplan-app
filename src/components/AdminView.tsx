@@ -76,6 +76,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'area' | 'employee'>('area');
+  const [employeeViewMode, setEmployeeViewMode] = useState<'week' | 'month'>('week');
+  const [currentMonth, setCurrentMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   
   // Bulk assignment state
   const [showBulkAssignment, setShowBulkAssignment] = useState(false);
@@ -448,6 +453,60 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onScheduleUpdate(updatedSchedule);
+  };
+
+  // Get all dates in a month
+  const getMonthDates = (yearMonth: string): string[] => {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const dates: string[] = [];
+    
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const date = new Date(year, month - 1, day);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    
+    return dates;
+  };
+
+  // Get month schedule for all dates in month
+  const getMonthSchedule = (yearMonth: string): DaySchedule[] => {
+    const dates = getMonthDates(yearMonth);
+    return dates.map(dateStr => {
+      let daySchedule = schedule.find(s => s.date === dateStr);
+      if (!daySchedule) {
+        daySchedule = {
+          date: dateStr,
+          shifts: Object.fromEntries(AREAS.map(a => [a, {}])) as any,
+          specialStatus: {}
+        };
+      }
+      return daySchedule;
+    });
+  };
+
+  // Change month navigation
+  const changeMonth = (direction: 'prev' | 'next') => {
+    const [year, month] = currentMonth.split('-').map(Number);
+    const newDate = new Date(year, month - 1 + (direction === 'next' ? 1 : -1), 1);
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`;
+    setCurrentMonth(newMonth);
+  };
+
+  // Get month range display
+  const getMonthRange = (): string => {
+    const [year, month] = currentMonth.split('-').map(Number);
+    const monthNames = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 
+                       'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    return `${monthNames[month - 1]} ${year}`;
+  };
+
+  // Get day name for a date
+  const getDayName = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const dayNames = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    return dayNames[date.getDay()];
   };
 
   // Get shifts for an employee on a specific date
@@ -1065,6 +1124,49 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="employee-overview-container">
           <h2 className="employee-overview-title">Mitarbeiter-Übersicht</h2>
           
+          <div className="time-view-toggle">
+            <button 
+              onClick={() => setEmployeeViewMode('week')} 
+              className={`time-view-btn ${employeeViewMode === 'week' ? 'active' : ''}`}
+            >
+              📅 Wochenansicht
+            </button>
+            <button 
+              onClick={() => setEmployeeViewMode('month')} 
+              className={`time-view-btn ${employeeViewMode === 'month' ? 'active' : ''}`}
+            >
+              📆 Monatsansicht
+            </button>
+          </div>
+
+          {employeeViewMode === 'week' ? (
+            <>
+              <div className="week-navigation-employee">
+                <button onClick={() => onWeekChange('prev')} className="btn-week-nav">
+                  ← Vorherige Woche
+                </button>
+                <div className="week-display">
+                  <strong>Woche:</strong> {getWeekRange()}
+                </div>
+                <button onClick={() => onWeekChange('next')} className="btn-week-nav">
+                  Nächste Woche →
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="month-navigation">
+              <button onClick={() => changeMonth('prev')} className="btn-month-nav">
+                ← Vorheriger Monat
+              </button>
+              <div className="month-display">
+                <strong>Monat:</strong> {getMonthRange()}
+              </div>
+              <button onClick={() => changeMonth('next')} className="btn-month-nav">
+                Nächster Monat →
+              </button>
+            </div>
+          )}
+          
           <div className="employee-view-controls">
             <div className="control-group">
               <label className="control-label">
@@ -1165,72 +1267,155 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
 
-          <div className="employee-overview-wrapper">
-            <table className="employee-overview-table">
-              <thead>
-                <tr>
-                  <th className="employee-name-header">Mitarbeiter</th>
-                  {weekSchedule.map((day, index) => (
-                    <th key={day.date} className="employee-day-header">
-                      <div className="day-name">{WEEKDAYS[index]}</div>
-                      <div className="day-date">
-                        {new Date(day.date).toLocaleDateString('de-DE', { 
-                          day: '2-digit', 
-                          month: '2-digit' 
-                        })}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {employees.map(employee => (
-                  <tr key={employee.id}>
-                    <td className="employee-name-cell">
-                      <div className="employee-name-with-color">
-                        {employee.color && (
-                          <span 
-                            className="employee-color-bar" 
-                            style={{ backgroundColor: getColorValue(employee.color) }}
-                            title={employee.color}
-                          ></span>
-                        )}
-                        <span className="employee-name-text">
-                          {employee.firstName} {employee.lastName}
-                        </span>
-                      </div>
-                    </td>
-                    {weekSchedule.map(day => {
-                      const shifts = getEmployeeShiftsForDate(employee.id, day.date);
-                      const hasShift = shifts.length > 0;
-                      const isUrlaub = shifts.includes('U');
-                      const isKrank = shifts.includes('K');
-                      const isSelected = selectedDays.has(day.date);
-                      
-                      return (
-                        <td 
-                          key={day.date} 
-                          className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
-                          onDragOver={handleEmployeeViewDragOver}
-                          onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
-                          onClick={(e) => handleCellClick(e, employee.id, day.date)}
-                          title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
-                        >
-                          {hasShift ? (
-                            <div className="shift-abbreviations">
-                              {shifts.join(' ')}
-                            </div>
-                          ) : (
-                            <span className="no-shift">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
+          {employeeViewMode === 'week' ? (
+            <div className="employee-overview-wrapper">
+              <table className="employee-overview-table">
+                <thead>
+                  <tr>
+                    <th className="employee-name-header">Mitarbeiter</th>
+                    {weekSchedule.map((day, index) => (
+                      <th key={day.date} className="employee-day-header">
+                        <div className="day-name">{WEEKDAYS[index]}</div>
+                        <div className="day-date">
+                          {new Date(day.date).toLocaleDateString('de-DE', { 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          })}
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {employees.map(employee => (
+                    <tr key={employee.id}>
+                      <td className="employee-name-cell">
+                        <div className="employee-name-with-color">
+                          {employee.color && (
+                            <span 
+                              className="employee-color-bar" 
+                              style={{ backgroundColor: getColorValue(employee.color) }}
+                              title={employee.color}
+                            ></span>
+                          )}
+                          <span className="employee-name-text">
+                            {employee.firstName} {employee.lastName}
+                          </span>
+                        </div>
+                      </td>
+                      {weekSchedule.map(day => {
+                        const shifts = getEmployeeShiftsForDate(employee.id, day.date);
+                        const hasShift = shifts.length > 0;
+                        const isUrlaub = shifts.includes('U');
+                        const isKrank = shifts.includes('K');
+                        const isSelected = selectedDays.has(day.date);
+                        
+                        return (
+                          <td 
+                            key={day.date} 
+                            className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            onDragOver={handleEmployeeViewDragOver}
+                            onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
+                            onClick={(e) => handleCellClick(e, employee.id, day.date)}
+                            title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
+                          >
+                            {hasShift ? (
+                              <div className="shift-abbreviations">
+                                {shifts.join(' ')}
+                              </div>
+                            ) : (
+                              <span className="no-shift">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="employee-month-wrapper">
+              <table className="employee-month-table">
+                <thead>
+                  <tr>
+                    <th className="employee-name-header">Mitarbeiter</th>
+                    {(() => {
+                      const monthDates = getMonthDates(currentMonth);
+                      return monthDates.map(dateStr => {
+                        const date = new Date(dateStr);
+                        const dayOfWeek = date.getDay();
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                        return (
+                          <th 
+                            key={dateStr} 
+                            className={`employee-month-day-header ${isWeekend ? 'weekend' : ''}`}
+                          >
+                            <div className="day-name-small">{getDayName(dateStr)}</div>
+                            <div className="day-date-small">
+                              {date.getDate()}
+                            </div>
+                          </th>
+                        );
+                      });
+                    })()}
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map(employee => (
+                    <tr key={employee.id}>
+                      <td className="employee-name-cell">
+                        <div className="employee-name-with-color">
+                          {employee.color && (
+                            <span 
+                              className="employee-color-bar" 
+                              style={{ backgroundColor: getColorValue(employee.color) }}
+                              title={employee.color}
+                            ></span>
+                          )}
+                          <span className="employee-name-text">
+                            {employee.firstName} {employee.lastName}
+                          </span>
+                        </div>
+                      </td>
+                      {(() => {
+                        const monthDates = getMonthDates(currentMonth);
+                        return monthDates.map(dateStr => {
+                          const shifts = getEmployeeShiftsForDate(employee.id, dateStr);
+                          const hasShift = shifts.length > 0;
+                          const isUrlaub = shifts.includes('U');
+                          const isKrank = shifts.includes('K');
+                          const isSelected = selectedDays.has(dateStr);
+                          const date = new Date(dateStr);
+                          const dayOfWeek = date.getDay();
+                          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                          
+                          return (
+                            <td 
+                              key={dateStr} 
+                              className={`employee-shift-cell-month ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              onDragOver={handleEmployeeViewDragOver}
+                              onDrop={(e) => handleEmployeeViewDrop(e, employee.id, dateStr)}
+                              onClick={(e) => handleCellClick(e, employee.id, dateStr)}
+                              title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
+                            >
+                              {hasShift ? (
+                                <div className="shift-abbreviations-small">
+                                  {shifts.join(' ')}
+                                </div>
+                              ) : (
+                                <span className="no-shift-small">—</span>
+                              )}
+                            </td>
+                          );
+                        });
+                      })()}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : (
         <div className="week-view-container">

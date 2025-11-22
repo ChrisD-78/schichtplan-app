@@ -1148,6 +1148,92 @@
   flex-wrap: wrap;
 }
 
+/* Time View Toggle (Week/Month) */
+.time-view-toggle {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.time-view-btn {
+  padding: 0.75rem 1.5rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.time-view-btn:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.time-view-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Week/Month Navigation */
+.week-navigation-employee {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.month-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.month-display {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 1rem;
+  text-align: center;
+  min-width: 250px;
+}
+
+.btn-month-nav {
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-month-nav:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
 .view-mode-btn {
   padding: 0.75rem 1.5rem;
   background: #f0f0f0;
@@ -1547,6 +1633,103 @@
   font-size: 1.2rem;
 }
 
+/* Month View */
+.employee-month-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  border-radius: 8px;
+  position: relative;
+}
+
+.employee-month-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  min-width: 1200px;
+  font-size: 0.85rem;
+}
+
+.employee-month-day-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.5rem 0.3rem;
+  text-align: center;
+  font-weight: 600;
+  min-width: 35px;
+  font-size: 0.75rem;
+}
+
+.employee-month-day-header.weekend {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.day-name-small {
+  font-weight: 700;
+  font-size: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+
+.day-date-small {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.employee-shift-cell-month {
+  padding: 0.4rem 0.2rem;
+  text-align: center;
+  border-bottom: 1px solid #f0f0f0;
+  border-right: 1px solid #f0f0f0;
+  vertical-align: middle;
+  min-width: 35px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  font-size: 0.7rem;
+}
+
+.employee-shift-cell-month:hover {
+  background: #f8f9ff;
+}
+
+.employee-shift-cell-month.weekend {
+  background: #faf5ff;
+}
+
+.employee-shift-cell-month.drop-zone-active {
+  background: rgba(102, 126, 234, 0.1);
+  border: 2px dashed #667eea;
+}
+
+.employee-shift-cell-month.cell-selected {
+  background: #e0e7ff;
+  border: 2px solid #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.employee-shift-cell-month.status-urlaub {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.employee-shift-cell-month.status-krank {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+}
+
+.shift-abbreviations-small {
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #667eea;
+  letter-spacing: 0.1rem;
+}
+
+.no-shift-small {
+  color: #ccc;
+  font-size: 0.9rem;
+}
+
 /* Mobile Optimizations */
 @media (max-width: 768px) {
   .navbar {
@@ -1906,6 +2089,65 @@
   .employee-color-bar-small {
     width: 2px;
     height: 14px;
+  }
+
+  .time-view-toggle {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .time-view-btn {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .week-navigation-employee,
+  .month-navigation {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .month-display {
+    width: 100%;
+    min-width: auto;
+    font-size: 0.9rem;
+  }
+
+  .btn-month-nav {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .employee-month-table {
+    font-size: 0.7rem;
+    min-width: 100%;
+  }
+
+  .employee-month-day-header {
+    min-width: 30px;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.65rem;
+  }
+
+  .employee-shift-cell-month {
+    padding: 0.3rem 0.15rem;
+    min-width: 30px;
+    font-size: 0.65rem;
+  }
+
+  .shift-abbreviations-small {
+    font-size: 0.65rem;
+    letter-spacing: 0.05rem;
+  }
+
+  .day-name-small {
+    font-size: 0.6rem;
+  }
+
+  .day-date-small {
+    font-size: 0.7rem;
   }
 
   .color-selector {
