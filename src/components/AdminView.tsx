@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus, EmployeeColor } from '../types';
 
 interface AdminViewProps {
   schedule: DaySchedule[];
@@ -14,6 +14,19 @@ interface AdminViewProps {
 const SHIFT_TYPES: ShiftType[] = ['Frühschicht', 'Mittelschicht', 'Spätschicht'];
 const AREAS: AreaType[] = ['Halle', 'Kasse', 'Sauna', 'Reinigung', 'Gastro'];
 const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+
+// Color mapping function
+const getColorValue = (color: EmployeeColor | undefined): string => {
+  if (!color) return 'transparent';
+  const colorMap: Record<EmployeeColor, string> = {
+    'Rot': '#ef4444',
+    'Braun': '#92400e',
+    'Schwarz': '#1f2937',
+    'Grün': '#10b981',
+    'Violett': '#8b5cf6'
+  };
+  return colorMap[color];
+};
 
 // Minimum staffing requirements per area and shift
 const MIN_STAFFING: Record<AreaType, Record<ShiftType, number>> = {
@@ -59,6 +72,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newEmployeeEmail, setNewEmployeeEmail] = useState('');
   const [newEmployeeWeeklyHours, setNewEmployeeWeeklyHours] = useState<string>('');
   const [newEmployeeAreas, setNewEmployeeAreas] = useState<AreaType[]>([]);
+  const [newEmployeeColor, setNewEmployeeColor] = useState<EmployeeColor | undefined>(undefined);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'area' | 'employee'>('area');
@@ -125,7 +139,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       areas: [...newEmployeeAreas],
       phone: newEmployeePhone.trim() || undefined,
       email: newEmployeeEmail.trim() || undefined,
-      weeklyHours: newEmployeeWeeklyHours ? parseFloat(newEmployeeWeeklyHours) : undefined
+      weeklyHours: newEmployeeWeeklyHours ? parseFloat(newEmployeeWeeklyHours) : undefined,
+      color: newEmployeeColor
     };
     
     const updatedEmployees = [...employees, newEmployee];
@@ -137,6 +152,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setNewEmployeeEmail('');
     setNewEmployeeWeeklyHours('');
     setNewEmployeeAreas([]);
+    setNewEmployeeColor(undefined);
     setShowEmployeeForm(false);
     setValidationMessage(`✅ ${newEmployee.firstName} ${newEmployee.lastName} wurde hinzugefügt (${newEmployee.areas.join(', ')})!`);
     setTimeout(() => setValidationMessage(null), 3000);
@@ -933,6 +949,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                 </div>
               </div>
+              
+              <div className="color-assignment">
+                <label>Farbe:</label>
+                <div className="color-selector">
+                  {(['Rot', 'Braun', 'Schwarz', 'Grün', 'Violett'] as EmployeeColor[]).map(color => (
+                    <button
+                      key={color}
+                      onClick={() => setNewEmployeeColor(newEmployeeColor === color ? undefined : color)}
+                      className={`color-btn color-${color.toLowerCase()} ${newEmployeeColor === color ? 'selected' : ''}`}
+                      title={color}
+                    >
+                      {newEmployeeColor === color && '✓ '}
+                      <span className="color-preview" style={{ backgroundColor: getColorValue(color) }}></span>
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <button onClick={addEmployee} className="btn-add-employee">Mitarbeiter hinzufügen</button>
             </div>
           )}
@@ -1152,7 +1187,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 {employees.map(employee => (
                   <tr key={employee.id}>
                     <td className="employee-name-cell">
-                      {employee.firstName} {employee.lastName}
+                      <div className="employee-name-with-color">
+                        {employee.color && (
+                          <span 
+                            className="employee-color-bar" 
+                            style={{ backgroundColor: getColorValue(employee.color) }}
+                            title={employee.color}
+                          ></span>
+                        )}
+                        <span className="employee-name-text">
+                          {employee.firstName} {employee.lastName}
+                        </span>
+                      </div>
                     </td>
                     {weekSchedule.map(day => {
                       const shifts = getEmployeeShiftsForDate(employee.id, day.date);
@@ -1227,26 +1273,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             onDrop={(e) => handleDrop(e, day.date, area, shift)}
                           >
                             <div className="shift-content">
-                              {assignments.map(assignment => (
-                                <div 
-                                  key={assignment.employeeId} 
-                                  className="assignment-tag draggable"
-                                  draggable
-                                  onDragStart={(e) => handleDragStart(e, assignment.employeeId, assignment.employeeName, day.date, area, shift)}
-                                  onDragEnd={handleDragEnd}
-                                  title="Zum Kopieren ziehen"
-                                >
-                                  <span className="drag-handle">⋮⋮</span>
-                                  <span>{assignment.employeeName}</span>
-                                  <button
-                                    onClick={() => removeAssignment(day.date, area, shift, assignment.employeeId)}
-                                    className="btn-remove"
-                                    title="Entfernen"
+                              {assignments.map(assignment => {
+                                const employee = employees.find(e => e.id === assignment.employeeId);
+                                return (
+                                  <div 
+                                    key={assignment.employeeId} 
+                                    className="assignment-tag draggable"
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, assignment.employeeId, assignment.employeeName, day.date, area, shift)}
+                                    onDragEnd={handleDragEnd}
+                                    title="Zum Kopieren ziehen"
                                   >
-                                    ✕
-                                  </button>
-                                </div>
-                              ))}
+                                    <span className="drag-handle">⋮⋮</span>
+                                    {employee?.color && (
+                                      <span 
+                                        className="employee-color-bar-small" 
+                                        style={{ backgroundColor: getColorValue(employee.color) }}
+                                        title={employee.color}
+                                      ></span>
+                                    )}
+                                    <span>{assignment.employeeName}</span>
+                                    <button
+                                      onClick={() => removeAssignment(day.date, area, shift, assignment.employeeId)}
+                                      className="btn-remove"
+                                      title="Entfernen"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                );
+                              })}
                               
                               <select
                                 onChange={(e) => {
@@ -1297,7 +1353,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
             return (
               <div key={emp.id} className={`employee-detail-card hours-${hoursStatus}`}>
                 <div className="emp-card-header">
-                  <h4>{emp.firstName} {emp.lastName}</h4>
+                  <h4>
+                    <div className="employee-name-with-color">
+                      {emp.color && (
+                        <span 
+                          className="employee-color-bar" 
+                          style={{ backgroundColor: getColorValue(emp.color) }}
+                          title={emp.color}
+                        ></span>
+                      )}
+                      <span className="employee-name-text">
+                        {emp.firstName} {emp.lastName}
+                      </span>
+                    </div>
+                  </h4>
                   <span className="emp-id">ID: {emp.id.slice(-4)}</span>
                 </div>
                 <div className="emp-card-body">

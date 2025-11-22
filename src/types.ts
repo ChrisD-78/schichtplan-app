@@ -1,5 +1,6 @@
 export type ShiftType = 'Frühschicht' | 'Mittelschicht' | 'Spätschicht';
 export type AreaType = 'Halle' | 'Kasse' | 'Sauna' | 'Reinigung' | 'Gastro';
+export type EmployeeColor = 'Rot' | 'Braun' | 'Schwarz' | 'Grün' | 'Violett';
 
 export interface Employee {
   id: string;
@@ -9,6 +10,7 @@ export interface Employee {
   phone?: string;
   email?: string;
   weeklyHours?: number;
+  color?: EmployeeColor;
 }
 
 export interface ShiftAssignment {

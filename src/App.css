@@ -1411,6 +1411,94 @@
   min-width: 180px;
 }
 
+/* Employee Color Bar */
+.employee-name-with-color {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.employee-color-bar {
+  width: 4px;
+  height: 100%;
+  min-height: 20px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.employee-color-bar-small {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.employee-name-text {
+  flex: 1;
+}
+
+/* Color Selector */
+.color-assignment {
+  margin: 1rem 0;
+}
+
+.color-assignment label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.color-selector {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.color-btn {
+  padding: 0.6rem 1rem;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.color-btn:hover {
+  background: #f0f0f0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.color-btn.selected {
+  background: #f8f9ff;
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.color-preview {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #ddd;
+  flex-shrink: 0;
+}
+
+.color-btn.selected .color-preview {
+  border-color: #667eea;
+}
+
 .employee-shift-cell {
   padding: 0.75rem 0.5rem;
   text-align: center;
@@ -1808,6 +1896,25 @@
   .shift-abbreviations {
     font-size: 0.9rem;
     letter-spacing: 0.1rem;
+  }
+
+  .employee-color-bar {
+    width: 3px;
+    min-height: 18px;
+  }
+
+  .employee-color-bar-small {
+    width: 2px;
+    height: 14px;
+  }
+
+  .color-selector {
+    flex-direction: column;
+  }
+
+  .color-btn {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .employee-view-controls {

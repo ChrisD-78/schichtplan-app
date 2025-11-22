@@ -1,5 +1,18 @@
 import React from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee, EmployeeColor } from '../types';
+
+// Color mapping function
+const getColorValue = (color: EmployeeColor | undefined): string => {
+  if (!color) return 'transparent';
+  const colorMap: Record<EmployeeColor, string> = {
+    'Rot': '#ef4444',
+    'Braun': '#92400e',
+    'Schwarz': '#1f2937',
+    'Grün': '#10b981',
+    'Violett': '#8b5cf6'
+  };
+  return colorMap[color];
+};
 
 interface EmployeeViewProps {
   schedule: DaySchedule[];
@@ -107,7 +120,22 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
       <div className="employee-header">
         <h1>👤 Meine Schichten</h1>
         <div className="employee-name">
-          {currentEmployee ? `${currentEmployee.firstName} ${currentEmployee.lastName}` : 'Mitarbeiter'}
+          {currentEmployee ? (
+            <div className="employee-name-with-color">
+              {currentEmployee.color && (
+                <span 
+                  className="employee-color-bar" 
+                  style={{ backgroundColor: getColorValue(currentEmployee.color) }}
+                  title={currentEmployee.color}
+                ></span>
+              )}
+              <span className="employee-name-text">
+                {currentEmployee.firstName} {currentEmployee.lastName}
+              </span>
+            </div>
+          ) : (
+            'Mitarbeiter'
+          )}
         </div>
       </div>
 
