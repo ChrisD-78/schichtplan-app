@@ -458,7 +458,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Get all dates in a month
   const getMonthDates = (yearMonth: string): string[] => {
     const [year, month] = yearMonth.split('-').map(Number);
-    const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
     const dates: string[] = [];
     
@@ -468,22 +467,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
     
     return dates;
-  };
-
-  // Get month schedule for all dates in month
-  const getMonthSchedule = (yearMonth: string): DaySchedule[] => {
-    const dates = getMonthDates(yearMonth);
-    return dates.map(dateStr => {
-      let daySchedule = schedule.find(s => s.date === dateStr);
-      if (!daySchedule) {
-        daySchedule = {
-          date: dateStr,
-          shifts: Object.fromEntries(AREAS.map(a => [a, {}])) as any,
-          specialStatus: {}
-        };
-      }
-      return daySchedule;
-    });
   };
 
   // Change month navigation
