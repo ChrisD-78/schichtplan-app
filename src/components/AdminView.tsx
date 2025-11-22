@@ -105,6 +105,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Drag state for employee view
   const [draggedShiftType, setDraggedShiftType] = useState<ShiftType | SpecialStatus | null>(null);
+  const [hoveredDropCell, setHoveredDropCell] = useState<{employeeId: string, dateStr: string} | null>(null);
   
   // Multi-day assignment state
   const [multiDayMode, setMultiDayMode] = useState(false);
@@ -732,11 +733,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
     setDraggedShiftType(null);
+    setHoveredDropCell(null);
   };
 
-  const handleEmployeeViewDragOver = (e: React.DragEvent) => {
+  const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    setHoveredDropCell({ employeeId, dateStr });
+    
+    // If multi-day mode is active and we're hovering over a selected day, highlight all selected days
+    if (multiDayMode && selectedDays.size > 0 && selectedDays.has(dateStr)) {
+      // Keep hoveredDropCell set to show feedback
+    }
+  };
+
+  const handleEmployeeViewDragLeave = (e: React.DragEvent) => {
+    // Only clear if we're actually leaving the cell (not just moving to a child element)
+    const target = e.currentTarget as HTMLElement;
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!target.contains(relatedTarget)) {
+      setHoveredDropCell(null);
+    }
   };
 
   const handleEmployeeViewDrop = (e: React.DragEvent, employeeId: string, dateStr: string) => {
@@ -746,13 +763,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     // If multi-day mode is active and days are selected, assign to all selected days
     if (multiDayMode && selectedDays.size > 0) {
-      // Add current cell to selection if not already selected
+      // Filter selected days to only include dates for the same employee (if needed)
+      // For now, we'll use all selected days regardless of employee
       const daysToAssign = selectedDays.has(dateStr) 
         ? Array.from(selectedDays) 
         : [...Array.from(selectedDays), dateStr];
       
-      // Assign to all selected days
-      assignShiftToMultipleDays(employeeId, daysToAssign, draggedShiftType);
+      // Assign to all selected days for this employee
+      daysToAssign.forEach(dayDate => {
+        assignShiftToEmployee(employeeId, dayDate, draggedShiftType);
+      });
+      
+      setValidationMessage(`✅ ${draggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
+      setTimeout(() => setValidationMessage(null), 3000);
+      
       setSelectedDays(new Set());
       setMultiDayMode(false);
     } else {
@@ -776,6 +800,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
 
     setDraggedShiftType(null);
+    setHoveredDropCell(null);
   };
 
   // Handle cell click for multi-day selection
@@ -1387,15 +1412,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         const isUrlaub = shifts.includes('U');
                         const isKrank = shifts.includes('K');
                         const isSelected = selectedDays.has(day.date);
+                        const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === day.date;
+                        const isInSelectedGroup = isSelected && selectedDays.size > 0 && draggedShiftType;
+                        
+                        const dateDisplay = new Date(day.date).toLocaleDateString('de-DE', { 
+                          weekday: 'short', 
+                          day: '2-digit', 
+                          month: '2-digit' 
+                        });
+                        
+                        let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
+                        if (isHovered && draggedShiftType) {
+                          cellTitle = `${draggedShiftType} zuweisen: ${dateDisplay}`;
+                        } else if (isInSelectedGroup) {
+                          cellTitle = `${draggedShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                        }
                         
                         return (
                           <td 
                             key={day.date} 
-                            className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
-                            onDragOver={handleEmployeeViewDragOver}
+                            className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
+                            onDragLeave={handleEmployeeViewDragLeave}
                             onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
                             onClick={(e) => handleCellClick(e, employee.id, day.date)}
-                            title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
+                            title={cellTitle}
                           >
                             {hasShift ? (
                               <div className="shift-abbreviations">
@@ -1468,14 +1509,32 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           const dayOfWeek = date.getDay();
                           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                           
+                          const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === dateStr;
+                          const isSelectedAndDragging = isSelected && draggedShiftType && multiDayMode;
+                          const isInSelectedGroup = isSelected && selectedDays.size > 0 && draggedShiftType;
+                          const dateDisplay = new Date(dateStr).toLocaleDateString('de-DE', { 
+                            weekday: 'short', 
+                            day: '2-digit', 
+                            month: '2-digit' 
+                          });
+                          
+                          // Determine title based on state
+                          let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
+                          if (isHovered && draggedShiftType) {
+                            cellTitle = `${draggedShiftType} zuweisen: ${dateDisplay}`;
+                          } else if (isInSelectedGroup) {
+                            cellTitle = `${draggedShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                          }
+                          
                           return (
                             <td 
                               key={dateStr} 
-                              className={`employee-shift-cell-month ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
-                              onDragOver={handleEmployeeViewDragOver}
+                              className={`employee-shift-cell-month ${draggedShiftType ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}
+                              onDragLeave={handleEmployeeViewDragLeave}
                               onDrop={(e) => handleEmployeeViewDrop(e, employee.id, dateStr)}
                               onClick={(e) => handleCellClick(e, employee.id, dateStr)}
-                              title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
+                              title={cellTitle}
                             >
                               {hasShift ? (
                                 <div className="shift-abbreviations-small">
