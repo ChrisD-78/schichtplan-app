@@ -678,7 +678,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   // Handle cell click for multi-day selection
-  const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
+  const handleCellClick = (e: React.MouseEvent, _employeeId: string, dateStr: string) => {
     if (e.shiftKey && selectedDays.size > 0) {
       // Select range from first selected day to current day
       const sortedSelected = Array.from(selectedDays).sort();
