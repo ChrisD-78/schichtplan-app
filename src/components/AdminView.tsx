@@ -120,6 +120,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
     nextWeek.setDate(nextWeek.getDate() + 7);
     return nextWeek.toISOString().split('T')[0];
   });
+  const [copySourceMonth, setCopySourceMonth] = useState<string>(() => {
+    const now = new Date(currentWeekStart);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [copyTargetMonth, setCopyTargetMonth] = useState<string>(() => {
+    const nextMonth = new Date(currentWeekStart);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    return `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const toggleAreaSelection = (area: AreaType) => {
     setNewEmployeeAreas(prev => {
@@ -531,6 +540,128 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
   };
 
+  // Get all dates for a month calendar
+  const getMonthDatesForCalendar = (yearMonth: string): Array<{ date: string; day: number; isCurrentMonth: boolean }> => {
+    const [year, month] = yearMonth.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    const daysInMonth = lastDay.getDate();
+    
+    // Get first day of week (0 = Sunday, 1 = Monday, etc.)
+    const firstDayOfWeek = firstDay.getDay();
+    // Convert to Monday = 0 format
+    const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+    
+    const dates: Array<{ date: string; day: number; isCurrentMonth: boolean }> = [];
+    
+    // Add days from previous month
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevMonthLastDay = new Date(prevYear, prevMonth, 0).getDate();
+    
+    for (let i = startOffset - 1; i >= 0; i--) {
+      const day = prevMonthLastDay - i;
+      const date = new Date(prevYear, prevMonth - 1, day);
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        day,
+        isCurrentMonth: false
+      });
+    }
+    
+    // Add days from current month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month - 1, day);
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        day,
+        isCurrentMonth: true
+      });
+    }
+    
+    // Add days from next month to fill the week
+    const totalCells = dates.length;
+    const remainingCells = 42 - totalCells; // 6 weeks * 7 days
+    for (let day = 1; day <= remainingCells; day++) {
+      const nextMonth = month === 12 ? 1 : month + 1;
+      const nextYear = month === 12 ? year + 1 : year;
+      const date = new Date(nextYear, nextMonth - 1, day);
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        day,
+        isCurrentMonth: false
+      });
+    }
+    
+    return dates;
+  };
+
+  // Get week dates for calendar
+  const getWeekDatesForCalendar = (weekStart: string): Array<{ date: string; day: number; dayName: string }> => {
+    const start = new Date(weekStart);
+    const dates: Array<{ date: string; day: number; dayName: string }> = [];
+    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push({
+        date: date.toISOString().split('T')[0],
+        day: date.getDate(),
+        dayName: dayNames[i]
+      });
+    }
+    
+    return dates;
+  };
+
+  // Change month in calendar
+  const changeCopyMonth = (direction: 'prev' | 'next', type: 'source' | 'target') => {
+    const currentMonth = type === 'source' ? copySourceMonth : copyTargetMonth;
+    const [year, month] = currentMonth.split('-').map(Number);
+    const date = new Date(year, month - 1, 1);
+    
+    if (direction === 'prev') {
+      date.setMonth(date.getMonth() - 1);
+    } else {
+      date.setMonth(date.getMonth() + 1);
+    }
+    
+    const newMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (type === 'source') {
+      setCopySourceMonth(newMonth);
+    } else {
+      setCopyTargetMonth(newMonth);
+    }
+  };
+
+  // Change week in calendar
+  const changeCopyWeek = (direction: 'prev' | 'next', type: 'source' | 'target') => {
+    const currentWeek = type === 'source' ? copySourceWeek : copyTargetWeek;
+    const date = new Date(currentWeek);
+    
+    if (direction === 'prev') {
+      date.setDate(date.getDate() - 7);
+    } else {
+      date.setDate(date.getDate() + 7);
+    }
+    
+    const newWeek = date.toISOString().split('T')[0];
+    
+    if (type === 'source') {
+      setCopySourceWeek(newWeek);
+      // Update month to match
+      const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      setCopySourceMonth(month);
+    } else {
+      setCopyTargetWeek(newWeek);
+      // Update month to match
+      const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      setCopyTargetMonth(month);
+    }
+  };
+
   // Handle week copy with dialog
   const handleWeekCopy = () => {
     const sourceMonday = getMondayOfWeek(copySourceWeek);
@@ -763,9 +894,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleShiftDragEnd = (e: React.DragEvent) => {
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
-    setDraggedShiftType(null);
-    setDraggedShiftFromCell(null);
-    setHoveredDropCell(null);
+    // Clear state after a short delay to allow drop handler to run first
+    // If drop was successful, it will have already cleared the state
+    setTimeout(() => {
+      setDraggedShiftType(null);
+      setDraggedShiftFromCell(null);
+      setHoveredDropCell(null);
+    }, 50);
   };
 
   const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
@@ -785,17 +920,32 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleEmployeeViewDrop = (e: React.DragEvent, employeeId: string, dateStr: string) => {
     e.preventDefault();
+    e.stopPropagation();
     
     // Check if we have either a shift type from palette or from table cell
-    if (!draggedShiftType && !draggedShiftFromCell) return;
+    if (!draggedShiftType && !draggedShiftFromCell) {
+      return;
+    }
 
     // If dragging a shift from a table cell (copying)
     if (draggedShiftFromCell) {
       const { employeeId: sourceEmployeeId, dateStr: sourceDateStr, shiftType } = draggedShiftFromCell;
       
+      // Don't copy to the same cell
+      if (sourceEmployeeId === employeeId && sourceDateStr === dateStr) {
+        return;
+      }
+      
       // If multi-day mode is active and days are selected, copy to all selected days
       if (multiDayMode && selectedDays.size > 0) {
-        const daysToAssign = Array.from(selectedDays);
+        const daysToAssign = Array.from(selectedDays).filter(dayDate => 
+          !(sourceEmployeeId === employeeId && dayDate === sourceDateStr)
+        );
+        
+        if (daysToAssign.length === 0) {
+          return;
+        }
+        
         daysToAssign.forEach(dayDate => {
           assignShiftToEmployee(employeeId, dayDate, shiftType);
         });
@@ -811,6 +961,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
         setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} nach ${new Date(dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} kopiert!`);
         setTimeout(() => setValidationMessage(null), 3000);
       }
+      
+      // Clear drag state after successful drop
+      setDraggedShiftType(null);
+      setDraggedShiftFromCell(null);
+      setHoveredDropCell(null);
     } else {
       // Dragging from palette (new assignment)
       // If multi-day mode is active and days are selected, assign to all selected days
@@ -1298,6 +1453,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   const nextWeekStart = new Date(currentWeekStart);
                   nextWeekStart.setDate(nextWeekStart.getDate() + 7);
                   setCopyTargetWeek(nextWeekStart.toISOString().split('T')[0]);
+                  // Initialize months based on current week selections
+                  const sourceMonth = `${new Date(currentWeekStart).getFullYear()}-${String(new Date(currentWeekStart).getMonth() + 1).padStart(2, '0')}`;
+                  const targetMonth = `${nextWeekStart.getFullYear()}-${String(nextWeekStart.getMonth() + 1).padStart(2, '0')}`;
+                  setCopySourceMonth(sourceMonth);
+                  setCopyTargetMonth(targetMonth);
                   setShowWeekCopyDialog(true);
                 }}
                 className="btn-copy-week"
@@ -1386,14 +1546,48 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <label className="dialog-label">
                     <strong>Von Woche (Quelle):</strong>
                   </label>
-                  <input
-                    type="date"
-                    value={copySourceWeek}
-                    onChange={(e) => setCopySourceWeek(e.target.value)}
-                    className="dialog-date-input"
-                  />
-                  <div className="week-preview">
-                    {getWeekRangeForDate(copySourceWeek)}
+                  <div className="calendar-week-view">
+                    <div className="calendar-nav">
+                      <button 
+                        type="button"
+                        onClick={() => changeCopyWeek('prev', 'source')}
+                        className="calendar-nav-btn"
+                      >
+                        ←
+                      </button>
+                      <div className="calendar-week-range">
+                        {getWeekRangeForDate(copySourceWeek)}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => changeCopyWeek('next', 'source')}
+                        className="calendar-nav-btn"
+                      >
+                        →
+                      </button>
+                    </div>
+                    <div className="calendar-week-grid">
+                      {getWeekDatesForCalendar(getMondayOfWeek(copySourceWeek)).map(({ date, day, dayName }) => {
+                        const isSelected = getMondayOfWeek(copySourceWeek) === getMondayOfWeek(date);
+                        const isToday = date === new Date().toISOString().split('T')[0];
+                        return (
+                          <div
+                            key={date}
+                            className={`calendar-week-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                            onClick={() => {
+                              const monday = getMondayOfWeek(date);
+                              setCopySourceWeek(monday);
+                              const month = `${new Date(monday).getFullYear()}-${String(new Date(monday).getMonth() + 1).padStart(2, '0')}`;
+                              setCopySourceMonth(month);
+                            }}
+                            title={new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                          >
+                            <div className="calendar-day-name">{dayName}</div>
+                            <div className="calendar-day-number">{day}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
@@ -1401,14 +1595,65 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <label className="dialog-label">
                     <strong>Nach Woche (Ziel):</strong>
                   </label>
-                  <input
-                    type="date"
-                    value={copyTargetWeek}
-                    onChange={(e) => setCopyTargetWeek(e.target.value)}
-                    className="dialog-date-input"
-                  />
-                  <div className="week-preview">
-                    {getWeekRangeForDate(copyTargetWeek)}
+                  <div className="calendar-month-view">
+                    <div className="calendar-nav">
+                      <button 
+                        type="button"
+                        onClick={() => changeCopyMonth('prev', 'target')}
+                        className="calendar-nav-btn"
+                      >
+                        ←
+                      </button>
+                      <div className="calendar-month-name">
+                        {new Date(copyTargetMonth + '-01').toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => changeCopyMonth('next', 'target')}
+                        className="calendar-nav-btn"
+                      >
+                        →
+                      </button>
+                    </div>
+                    <div className="calendar-month-grid">
+                      <div className="calendar-weekday-header">
+                        {['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(day => (
+                          <div key={day} className="calendar-weekday">{day}</div>
+                        ))}
+                      </div>
+                      <div className="calendar-days-grid">
+                        {getMonthDatesForCalendar(copyTargetMonth).map(({ date, day, isCurrentMonth }) => {
+                          const targetMonday = getMondayOfWeek(copyTargetWeek);
+                          const dateMonday = getMondayOfWeek(date);
+                          const isSelected = targetMonday === dateMonday;
+                          // Check if this date is part of the selected week
+                          const selectedWeekStart = new Date(targetMonday);
+                          const selectedWeekEnd = new Date(selectedWeekStart);
+                          selectedWeekEnd.setDate(selectedWeekStart.getDate() + 6);
+                          const currentDate = new Date(date);
+                          const isInSelectedWeek = currentDate >= selectedWeekStart && currentDate <= selectedWeekEnd && targetMonday !== '';
+                          const isToday = date === new Date().toISOString().split('T')[0];
+                          return (
+                            <div
+                              key={date}
+                              className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isSelected ? 'selected' : ''} ${isInSelectedWeek && !isSelected ? 'in-selected-week' : ''} ${isToday ? 'today' : ''}`}
+                              onClick={() => {
+                                const monday = getMondayOfWeek(date);
+                                setCopyTargetWeek(monday);
+                                const month = `${new Date(monday).getFullYear()}-${String(new Date(monday).getMonth() + 1).padStart(2, '0')}`;
+                                setCopyTargetMonth(month);
+                              }}
+                              title={new Date(date).toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            >
+                              {day}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="calendar-week-preview">
+                      Zielwoche: {getWeekRangeForDate(copyTargetWeek)}
+                    </div>
                   </div>
                 </div>
 
@@ -1515,6 +1760,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                       draggable
                                       onDragStart={(e) => handleShiftDragStart(e, employee.id, day.date, shiftType)}
                                       onDragEnd={handleShiftDragEnd}
+                                      onDrop={(e) => e.stopPropagation()}
+                                      onDragOver={(e) => e.stopPropagation()}
                                       className="shift-abbreviation-draggable"
                                       title={`${shiftType} ziehen zum Kopieren`}
                                     >
@@ -1640,6 +1887,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                         draggable
                                         onDragStart={(e) => handleShiftDragStart(e, employee.id, dateStr, shiftType)}
                                         onDragEnd={handleShiftDragEnd}
+                                        onDrop={(e) => e.stopPropagation()}
+                                        onDragOver={(e) => e.stopPropagation()}
                                         className="shift-abbreviation-draggable-small"
                                         title={`${shiftType} ziehen zum Kopieren`}
                                       >
