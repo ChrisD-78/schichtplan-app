@@ -1152,9 +1152,13 @@
 .time-view-toggle {
   display: flex;
   gap: 1rem;
-  margin: 1rem 0;
+  margin: 1.5rem 0;
   justify-content: center;
   flex-wrap: wrap;
+  padding: 1rem;
+  background: #f8f9ff;
+  border-radius: 12px;
+  border: 2px solid #e0e7ff;
 }
 
 .time-view-btn {
@@ -1169,6 +1173,9 @@
   min-height: 44px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  font-size: 1rem;
+  flex: 1;
+  min-width: 150px;
 }
 
 .time-view-btn:hover {
