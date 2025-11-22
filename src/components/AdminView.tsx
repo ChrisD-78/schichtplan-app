@@ -109,6 +109,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Multi-day assignment state
   const [multiDayMode, setMultiDayMode] = useState(false);
   const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
+  
+  // Week copy dialog state
+  const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
+  const [copySourceWeek, setCopySourceWeek] = useState<string>(currentWeekStart);
+  const [copyTargetWeek, setCopyTargetWeek] = useState<string>(() => {
+    const nextWeek = new Date(currentWeekStart);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    return nextWeek.toISOString().split('T')[0];
+  });
 
   const toggleAreaSelection = (area: AreaType) => {
     setNewEmployeeAreas(prev => {
@@ -492,9 +501,43 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return dayNames[date.getDay()];
   };
 
+  // Get Monday of a week from any date in that week
+  const getMondayOfWeek = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    const monday = new Date(date.setDate(diff));
+    return monday.toISOString().split('T')[0];
+  };
+
+  // Get week range display for a week start date
+  const getWeekRangeForDate = (weekStart: string): string => {
+    const start = new Date(weekStart);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    
+    return `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+  };
+
+  // Handle week copy with dialog
+  const handleWeekCopy = () => {
+    const sourceMonday = getMondayOfWeek(copySourceWeek);
+    const targetMonday = getMondayOfWeek(copyTargetWeek);
+    
+    if (sourceMonday === targetMonday) {
+      setValidationMessage('⚠️ Quell- und Zielwoche dürfen nicht identisch sein!');
+      setTimeout(() => setValidationMessage(null), 3000);
+      return;
+    }
+    
+    copyWeekSchedule(sourceMonday, targetMonday);
+    setShowWeekCopyDialog(false);
+  };
+
   // Get shifts for an employee on a specific date
   const getEmployeeShiftsForDate = (employeeId: string, dateStr: string): string[] => {
-    const daySchedule = weekSchedule.find(s => s.date === dateStr);
+    // Use full schedule instead of weekSchedule to support month view
+    const daySchedule = schedule.find(s => s.date === dateStr);
     if (!daySchedule) return [];
 
     const shifts: string[] = [];
@@ -1172,14 +1215,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="control-group">
               <button
                 onClick={() => {
+                  setCopySourceWeek(currentWeekStart);
                   const nextWeekStart = new Date(currentWeekStart);
                   nextWeekStart.setDate(nextWeekStart.getDate() + 7);
-                  copyWeekSchedule(currentWeekStart, nextWeekStart.toISOString().split('T')[0]);
+                  setCopyTargetWeek(nextWeekStart.toISOString().split('T')[0]);
+                  setShowWeekCopyDialog(true);
                 }}
                 className="btn-copy-week"
-                title="Aktuelle Woche zur nächsten Woche kopieren"
+                title="Woche kopieren - Quell- und Zielwoche auswählen"
               >
-                📋 Woche kopieren → Nächste Woche
+                📋 Woche kopieren
               </button>
             </div>
             
@@ -1249,6 +1294,56 @@ export const AdminView: React.FC<AdminViewProps> = ({
               💡 Tipp: Ziehen Sie eine Schicht auf eine Zelle, um sie zuzuweisen. Ziehen Sie erneut auf eine belegte Zelle, um sie zu entfernen.
             </div>
           </div>
+
+          {showWeekCopyDialog && (
+            <div className="week-copy-dialog-overlay" onClick={() => setShowWeekCopyDialog(false)}>
+              <div className="week-copy-dialog" onClick={(e) => e.stopPropagation()}>
+                <h3>📋 Woche kopieren</h3>
+                <p className="dialog-description">
+                  Wählen Sie die Quellwoche (von) und die Zielwoche (nach) aus. Der Wochenplan wird von der Quellwoche zur Zielwoche kopiert.
+                </p>
+                
+                <div className="dialog-section">
+                  <label className="dialog-label">
+                    <strong>Von Woche (Quelle):</strong>
+                  </label>
+                  <input
+                    type="date"
+                    value={copySourceWeek}
+                    onChange={(e) => setCopySourceWeek(e.target.value)}
+                    className="dialog-date-input"
+                  />
+                  <div className="week-preview">
+                    {getWeekRangeForDate(copySourceWeek)}
+                  </div>
+                </div>
+
+                <div className="dialog-section">
+                  <label className="dialog-label">
+                    <strong>Nach Woche (Ziel):</strong>
+                  </label>
+                  <input
+                    type="date"
+                    value={copyTargetWeek}
+                    onChange={(e) => setCopyTargetWeek(e.target.value)}
+                    className="dialog-date-input"
+                  />
+                  <div className="week-preview">
+                    {getWeekRangeForDate(copyTargetWeek)}
+                  </div>
+                </div>
+
+                <div className="dialog-actions">
+                  <button onClick={handleWeekCopy} className="btn-dialog-confirm">
+                    ✓ Kopieren
+                  </button>
+                  <button onClick={() => setShowWeekCopyDialog(false)} className="btn-dialog-cancel">
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {employeeViewMode === 'week' ? (
             <div className="employee-overview-wrapper">

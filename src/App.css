@@ -1443,6 +1443,130 @@
   margin-top: 0.5rem;
 }
 
+/* Week Copy Dialog */
+.week-copy-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.week-copy-dialog {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  animation: slideIn 0.3s ease;
+}
+
+.week-copy-dialog h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.dialog-description {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.dialog-section {
+  margin-bottom: 1.5rem;
+}
+
+.dialog-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.dialog-date-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dialog-date-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.week-preview {
+  padding: 0.5rem 1rem;
+  background: #f8f9ff;
+  border-radius: 8px;
+  color: #667eea;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.btn-dialog-confirm {
+  flex: 1;
+  min-width: 150px;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-dialog-confirm:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+.btn-dialog-cancel {
+  padding: 0.75rem 1.5rem;
+  background: white;
+  color: #666;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-dialog-cancel:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
 .employee-overview-title {
   font-size: 1.8rem;
   margin-bottom: 1.5rem;
@@ -1694,6 +1818,8 @@
   transition: all 0.2s ease;
   position: relative;
   font-size: 0.7rem;
+  pointer-events: auto;
+  user-select: none;
 }
 
 .employee-shift-cell-month:hover {
@@ -2398,6 +2524,25 @@
 
   .control-hint {
     font-size: 0.75rem;
+  }
+
+  .week-copy-dialog {
+    padding: 1.5rem;
+    max-width: 100%;
+    margin: 1rem;
+  }
+
+  .week-copy-dialog h3 {
+    font-size: 1.3rem;
+  }
+
+  .dialog-actions {
+    flex-direction: column;
+  }
+
+  .btn-dialog-confirm,
+  .btn-dialog-cancel {
+    width: 100%;
   }
 }
 
