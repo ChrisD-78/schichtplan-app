@@ -377,12 +377,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     onScheduleUpdate(updatedSchedule);
   };
 
-  // Assign shift to multiple days (consecutive or selected)
-  const assignShiftToMultipleDays = (employeeId: string, dates: string[], shiftType: ShiftType | SpecialStatus) => {
-    dates.forEach(dateStr => {
-      assignShiftToEmployee(employeeId, dateStr, shiftType);
-    });
-  };
 
   // Copy entire week schedule
   const copyWeekSchedule = (sourceWeekStart: string, targetWeekStart: string) => {
@@ -939,7 +933,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setDraggedShiftFromCell(null);
     setHoveredDropCell(null);
 
-      // If dragging a shift from a table cell (copying)
+    // If dragging a shift from a table cell (copying)
     if (currentDraggedShiftFromCell) {
       const { employeeId: sourceEmployeeId, dateStr: sourceDateStr, shiftType } = currentDraggedShiftFromCell;
       
@@ -984,32 +978,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
           : [...Array.from(selectedDays), dateStr];
         
         // Assign to all selected days for this employee
-        daysToAssign.forEach(dayDate => {
-          assignShiftToEmployee(employeeId, dayDate, currentDraggedShiftType);
-        });
-        
-        setValidationMessage(`✅ ${currentDraggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
-        setTimeout(() => setValidationMessage(null), 3000);
+        if (currentDraggedShiftType) {
+          daysToAssign.forEach(dayDate => {
+            assignShiftToEmployee(employeeId, dayDate, currentDraggedShiftType);
+          });
+          
+          setValidationMessage(`✅ ${currentDraggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
+          setTimeout(() => setValidationMessage(null), 3000);
+        }
         
         setSelectedDays(new Set());
         setMultiDayMode(false);
       } else {
         // Check if dropping on existing shift (remove it)
-        const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
-        if (currentShifts.length > 0) {
-          // If dropping same type, remove it; otherwise replace
-          const shiftTypeStr = currentDraggedShiftType === 'Frühschicht' ? 'F' :
-                              currentDraggedShiftType === 'Mittelschicht' ? 'M' :
-                              currentDraggedShiftType === 'Spätschicht' ? 'S' :
-                              currentDraggedShiftType === 'Urlaub' ? 'U' : 'K';
-          
-          if (currentShifts.includes(shiftTypeStr)) {
-            removeShiftFromEmployee(employeeId, dateStr);
+        if (currentDraggedShiftType) {
+          const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
+          if (currentShifts.length > 0) {
+            // If dropping same type, remove it; otherwise replace
+            const shiftTypeStr = currentDraggedShiftType === 'Frühschicht' ? 'F' :
+                                currentDraggedShiftType === 'Mittelschicht' ? 'M' :
+                                currentDraggedShiftType === 'Spätschicht' ? 'S' :
+                                currentDraggedShiftType === 'Urlaub' ? 'U' : 'K';
+            
+            if (currentShifts.includes(shiftTypeStr)) {
+              removeShiftFromEmployee(employeeId, dateStr);
+            } else {
+              assignShiftToEmployee(employeeId, dateStr, currentDraggedShiftType);
+            }
           } else {
             assignShiftToEmployee(employeeId, dateStr, currentDraggedShiftType);
           }
-        } else {
-          assignShiftToEmployee(employeeId, dateStr, currentDraggedShiftType);
         }
       }
     }
@@ -1849,7 +1847,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                           
                           const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === dateStr;
-                          const isSelectedAndDragging = isSelected && draggedShiftType && multiDayMode;
                           const isInSelectedGroup = isSelected && selectedDays.size > 0 && (draggedShiftType || draggedShiftFromCell);
                           const dateDisplay = new Date(dateStr).toLocaleDateString('de-DE', { 
                             weekday: 'short', 
