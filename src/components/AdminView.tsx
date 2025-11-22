@@ -61,6 +61,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newEmployeeAreas, setNewEmployeeAreas] = useState<AreaType[]>([]);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'area' | 'employee'>('area');
   
   // Bulk assignment state
   const [showBulkAssignment, setShowBulkAssignment] = useState(false);
@@ -252,6 +253,28 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const isUnderStaffed = (area: AreaType, shift: ShiftType, assignmentCount: number): boolean => {
     const minRequired = MIN_STAFFING[area][shift];
     return assignmentCount < minRequired;
+  };
+
+  // Get shifts for an employee on a specific date
+  const getEmployeeShiftsForDate = (employeeId: string, dateStr: string): string[] => {
+    const daySchedule = weekSchedule.find(s => s.date === dateStr);
+    if (!daySchedule) return [];
+
+    const shifts: string[] = [];
+    
+    AREAS.forEach(area => {
+      SHIFT_TYPES.forEach(shift => {
+        const assignments = daySchedule.shifts[area]?.[shift];
+        if (assignments?.some(a => a.employeeId === employeeId)) {
+          // F for Frühschicht, M for Mittelschicht, S for Spätschicht
+          if (shift === 'Frühschicht') shifts.push('F');
+          else if (shift === 'Mittelschicht') shifts.push('M');
+          else if (shift === 'Spätschicht') shifts.push('S');
+        }
+      });
+    });
+
+    return shifts;
   };
 
   // Calculate worked hours for an employee in the current week
@@ -521,6 +544,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </button>
         </div>
 
+        <div className="view-mode-toggle">
+          <button 
+            onClick={() => setViewMode('area')} 
+            className={`view-mode-btn ${viewMode === 'area' ? 'active' : ''}`}
+          >
+            📊 Bereichsansicht
+          </button>
+          <button 
+            onClick={() => setViewMode('employee')} 
+            className={`view-mode-btn ${viewMode === 'employee' ? 'active' : ''}`}
+          >
+            👥 Mitarbeiteransicht
+          </button>
+        </div>
+
         <div className="employee-section">
           <button 
             onClick={() => setShowEmployeeForm(!showEmployeeForm)} 
@@ -700,8 +738,56 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      <div className="week-view-container">
-        {AREAS.map(area => (
+      {viewMode === 'employee' ? (
+        <div className="employee-overview-container">
+          <h2 className="employee-overview-title">Mitarbeiter-Übersicht</h2>
+          <div className="employee-overview-wrapper">
+            <table className="employee-overview-table">
+              <thead>
+                <tr>
+                  <th className="employee-name-header">Mitarbeiter</th>
+                  {weekSchedule.map((day, index) => (
+                    <th key={day.date} className="employee-day-header">
+                      <div className="day-name">{WEEKDAYS[index]}</div>
+                      <div className="day-date">
+                        {new Date(day.date).toLocaleDateString('de-DE', { 
+                          day: '2-digit', 
+                          month: '2-digit' 
+                        })}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map(employee => (
+                  <tr key={employee.id}>
+                    <td className="employee-name-cell">
+                      {employee.firstName} {employee.lastName}
+                    </td>
+                    {weekSchedule.map(day => {
+                      const shifts = getEmployeeShiftsForDate(employee.id, day.date);
+                      return (
+                        <td key={day.date} className="employee-shift-cell">
+                          {shifts.length > 0 ? (
+                            <div className="shift-abbreviations">
+                              {shifts.join(' ')}
+                            </div>
+                          ) : (
+                            <span className="no-shift">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="week-view-container">
+          {AREAS.map(area => (
           <div key={area} className="area-section">
             <h2 className="area-title">{area}</h2>
             <div className="area-table-wrapper">
@@ -797,7 +883,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       <div className="employees-list">
         <h3>Mitarbeiter-Übersicht ({employees.length})</h3>

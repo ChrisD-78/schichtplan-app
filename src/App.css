@@ -1139,6 +1139,132 @@
   border-left: 4px solid #10b981;
 }
 
+/* View Mode Toggle */
+.view-mode-toggle {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.view-mode-btn {
+  padding: 0.75rem 1.5rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.view-mode-btn:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.view-mode-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Employee Overview */
+.employee-overview-container {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  margin: 2rem 0;
+}
+
+.employee-overview-title {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+  text-align: center;
+}
+
+.employee-overview-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  border-radius: 8px;
+}
+
+.employee-overview-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  min-width: 600px;
+  font-size: 0.95rem;
+}
+
+.employee-name-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  min-width: 180px;
+  border-top-left-radius: 8px;
+}
+
+.employee-day-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.employee-day-header:last-child {
+  border-top-right-radius: 8px;
+}
+
+.employee-name-cell {
+  background: #f8f9ff;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  color: #667eea;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  border-right: 2px solid #e0e7ff;
+  min-width: 180px;
+}
+
+.employee-shift-cell {
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: middle;
+  min-width: 100px;
+}
+
+.shift-abbreviations {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #667eea;
+  letter-spacing: 0.2rem;
+}
+
+.no-shift {
+  color: #ccc;
+  font-size: 1.2rem;
+}
+
 /* Mobile Optimizations */
 @media (max-width: 768px) {
   .navbar {
@@ -1436,6 +1562,59 @@
     min-height: 32px;
     touch-action: manipulation;
   }
+
+  .view-mode-toggle {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .view-mode-btn {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .employee-overview-container {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .employee-overview-title {
+    font-size: 1.4rem;
+  }
+
+  .employee-overview-table {
+    font-size: 0.8rem;
+    min-width: 100%;
+  }
+
+  .employee-name-header {
+    min-width: 150px;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .employee-day-header {
+    min-width: 80px;
+    padding: 0.5rem 0.3rem;
+    font-size: 0.75rem;
+  }
+
+  .employee-name-cell {
+    min-width: 150px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .employee-shift-cell {
+    padding: 0.5rem 0.3rem;
+    min-width: 80px;
+  }
+
+  .shift-abbreviations {
+    font-size: 0.9rem;
+    letter-spacing: 0.1rem;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1592,6 +1771,38 @@
   .area-btn {
     min-height: 44px;
     touch-action: manipulation;
+  }
+
+  .employee-overview-table {
+    font-size: 0.7rem;
+  }
+
+  .employee-name-header {
+    min-width: 120px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .employee-day-header {
+    min-width: 70px;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.7rem;
+  }
+
+  .employee-name-cell {
+    min-width: 120px;
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .employee-shift-cell {
+    padding: 0.4rem 0.2rem;
+    min-width: 70px;
+  }
+
+  .shift-abbreviations {
+    font-size: 0.8rem;
+    letter-spacing: 0.05rem;
   }
 }
 
