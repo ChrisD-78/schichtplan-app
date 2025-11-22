@@ -894,13 +894,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleShiftDragEnd = (e: React.DragEvent) => {
     const target = e.currentTarget as HTMLElement;
     target.style.opacity = '1';
-    // Clear state after a short delay to allow drop handler to run first
-    // If drop was successful, it will have already cleared the state
+    // Don't clear state here - let the drop handler clear it on success
+    // If drop didn't happen, state will be cleared on next drag or component update
+    // Use a small delay to ensure drop handler runs first
     setTimeout(() => {
-      setDraggedShiftType(null);
-      setDraggedShiftFromCell(null);
-      setHoveredDropCell(null);
-    }, 50);
+      if (draggedShiftFromCell) {
+        setDraggedShiftType(null);
+        setDraggedShiftFromCell(null);
+        setHoveredDropCell(null);
+      }
+    }, 100);
   };
 
   const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
@@ -922,14 +925,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
+    // Important: Save current drag state before clearing it
+    const currentDraggedShiftFromCell = draggedShiftFromCell;
+    const currentDraggedShiftType = draggedShiftType;
+    
     // Check if we have either a shift type from palette or from table cell
-    if (!draggedShiftType && !draggedShiftFromCell) {
+    if (!currentDraggedShiftType && !currentDraggedShiftFromCell) {
       return;
     }
 
-    // If dragging a shift from a table cell (copying)
-    if (draggedShiftFromCell) {
-      const { employeeId: sourceEmployeeId, dateStr: sourceDateStr, shiftType } = draggedShiftFromCell;
+    // Clear drag state immediately to prevent handleShiftDragEnd from interfering
+    setDraggedShiftType(null);
+    setDraggedShiftFromCell(null);
+    setHoveredDropCell(null);
+
+      // If dragging a shift from a table cell (copying)
+    if (currentDraggedShiftFromCell) {
+      const { employeeId: sourceEmployeeId, dateStr: sourceDateStr, shiftType } = currentDraggedShiftFromCell;
       
       // Don't copy to the same cell
       if (sourceEmployeeId === employeeId && sourceDateStr === dateStr) {
@@ -961,11 +973,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} nach ${new Date(dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} kopiert!`);
         setTimeout(() => setValidationMessage(null), 3000);
       }
-      
-      // Clear drag state after successful drop
-      setDraggedShiftType(null);
-      setDraggedShiftFromCell(null);
-      setHoveredDropCell(null);
     } else {
       // Dragging from palette (new assignment)
       // If multi-day mode is active and days are selected, assign to all selected days
@@ -978,10 +985,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
         
         // Assign to all selected days for this employee
         daysToAssign.forEach(dayDate => {
-          assignShiftToEmployee(employeeId, dayDate, draggedShiftType);
+          assignShiftToEmployee(employeeId, dayDate, currentDraggedShiftType);
         });
         
-        setValidationMessage(`✅ ${draggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
+        setValidationMessage(`✅ ${currentDraggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
         setTimeout(() => setValidationMessage(null), 3000);
         
         setSelectedDays(new Set());
@@ -991,18 +998,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
         const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
         if (currentShifts.length > 0) {
           // If dropping same type, remove it; otherwise replace
-          const shiftTypeStr = draggedShiftType === 'Frühschicht' ? 'F' :
-                              draggedShiftType === 'Mittelschicht' ? 'M' :
-                              draggedShiftType === 'Spätschicht' ? 'S' :
-                              draggedShiftType === 'Urlaub' ? 'U' : 'K';
+          const shiftTypeStr = currentDraggedShiftType === 'Frühschicht' ? 'F' :
+                              currentDraggedShiftType === 'Mittelschicht' ? 'M' :
+                              currentDraggedShiftType === 'Spätschicht' ? 'S' :
+                              currentDraggedShiftType === 'Urlaub' ? 'U' : 'K';
           
           if (currentShifts.includes(shiftTypeStr)) {
             removeShiftFromEmployee(employeeId, dateStr);
           } else {
-            assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
+            assignShiftToEmployee(employeeId, dateStr, currentDraggedShiftType);
           }
         } else {
-          assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
+          assignShiftToEmployee(employeeId, dateStr, currentDraggedShiftType);
         }
       }
     }
@@ -1758,10 +1765,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                     <span
                                       key={idx}
                                       draggable
-                                      onDragStart={(e) => handleShiftDragStart(e, employee.id, day.date, shiftType)}
-                                      onDragEnd={handleShiftDragEnd}
-                                      onDrop={(e) => e.stopPropagation()}
-                                      onDragOver={(e) => e.stopPropagation()}
+                                      onDragStart={(e) => {
+                                        e.stopPropagation(); // Prevent event from bubbling to td
+                                        handleShiftDragStart(e, employee.id, day.date, shiftType);
+                                      }}
+                                      onDragEnd={(e) => {
+                                        e.stopPropagation(); // Prevent event from bubbling to td
+                                        handleShiftDragEnd(e);
+                                      }}
                                       className="shift-abbreviation-draggable"
                                       title={`${shiftType} ziehen zum Kopieren`}
                                     >
@@ -1885,10 +1896,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                       <span
                                         key={idx}
                                         draggable
-                                        onDragStart={(e) => handleShiftDragStart(e, employee.id, dateStr, shiftType)}
-                                        onDragEnd={handleShiftDragEnd}
-                                        onDrop={(e) => e.stopPropagation()}
-                                        onDragOver={(e) => e.stopPropagation()}
+                                        onDragStart={(e) => {
+                                          e.stopPropagation(); // Prevent event from bubbling to td
+                                          handleShiftDragStart(e, employee.id, dateStr, shiftType);
+                                        }}
+                                        onDragEnd={(e) => {
+                                          e.stopPropagation(); // Prevent event from bubbling to td
+                                          handleShiftDragEnd(e);
+                                        }}
                                         className="shift-abbreviation-draggable-small"
                                         title={`${shiftType} ziehen zum Kopieren`}
                                       >
