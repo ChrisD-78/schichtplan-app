@@ -24,12 +24,17 @@ export interface Shift {
   assignments: ShiftAssignment[];
 }
 
+export type SpecialStatus = 'Urlaub' | 'Krank';
+
 export interface DaySchedule {
   date: string;
   shifts: {
     [key in AreaType]: {
       [key in ShiftType]?: ShiftAssignment[];
     };
+  };
+  specialStatus?: {
+    [employeeId: string]: SpecialStatus;
   };
 }
 

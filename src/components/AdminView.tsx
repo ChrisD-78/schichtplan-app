@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus } from '../types';
 
 interface AdminViewProps {
   schedule: DaySchedule[];
@@ -83,6 +83,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     sourceArea: AreaType;
     sourceShift: ShiftType;
   } | null>(null);
+
+  // Drag state for employee view
+  const [draggedShiftType, setDraggedShiftType] = useState<ShiftType | SpecialStatus | null>(null);
+  
+  // Multi-day assignment state
+  const [multiDayMode, setMultiDayMode] = useState(false);
+  const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
 
   const toggleAreaSelection = (area: AreaType) => {
     setNewEmployeeAreas(prev => {
@@ -255,12 +262,192 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return assignmentCount < minRequired;
   };
 
+  // Assign shift or special status to employee in employee view
+  const assignShiftToEmployee = (employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus) => {
+    const employee = employees.find(e => e.id === employeeId);
+    if (!employee) return;
+
+    const updatedSchedule = [...schedule];
+    let daySchedule = updatedSchedule.find(s => s.date === dateStr);
+
+    if (!daySchedule) {
+      daySchedule = {
+        date: dateStr,
+        shifts: Object.fromEntries(AREAS.map(a => [a, {}])) as any,
+        specialStatus: {}
+      };
+      updatedSchedule.push(daySchedule);
+    }
+
+    // Initialize specialStatus if it doesn't exist
+    if (!daySchedule.specialStatus) {
+      daySchedule.specialStatus = {};
+    }
+
+    // If assigning Urlaub or Krank, remove all regular shifts and set special status
+    if (shiftType === 'Urlaub' || shiftType === 'Krank') {
+      // Remove employee from all regular shifts on this date
+      AREAS.forEach(area => {
+        SHIFT_TYPES.forEach(shift => {
+          if (daySchedule.shifts[area]?.[shift]) {
+            daySchedule.shifts[area][shift] = daySchedule.shifts[area][shift]!.filter(
+              a => a.employeeId !== employeeId
+            );
+          }
+        });
+      });
+      // Set special status
+      daySchedule.specialStatus[employeeId] = shiftType;
+    } else {
+      // Remove special status if assigning regular shift
+      delete daySchedule.specialStatus[employeeId];
+
+      // Remove employee from all other shifts on this date
+      AREAS.forEach(area => {
+        SHIFT_TYPES.forEach(shift => {
+          if (daySchedule.shifts[area]?.[shift]) {
+            daySchedule.shifts[area][shift] = daySchedule.shifts[area][shift]!.filter(
+              a => a.employeeId !== employeeId
+            );
+          }
+        });
+      });
+
+      // Assign to first available area that employee can work in
+      const availableArea = employee.areas.find(area => employee.areas.includes(area));
+      if (availableArea) {
+        if (!daySchedule.shifts[availableArea]) {
+          daySchedule.shifts[availableArea] = {};
+        }
+        if (!daySchedule.shifts[availableArea][shiftType]) {
+          daySchedule.shifts[availableArea][shiftType] = [];
+        }
+        const assignments = daySchedule.shifts[availableArea][shiftType]!;
+        const existingIndex = assignments.findIndex(a => a.employeeId === employeeId);
+        if (existingIndex === -1) {
+          assignments.push({
+            employeeId: employee.id,
+            employeeName: `${employee.firstName} ${employee.lastName}`
+          });
+        }
+      }
+    }
+
+    onScheduleUpdate(updatedSchedule);
+  };
+
+  // Assign shift to multiple days (consecutive or selected)
+  const assignShiftToMultipleDays = (employeeId: string, dates: string[], shiftType: ShiftType | SpecialStatus) => {
+    dates.forEach(dateStr => {
+      assignShiftToEmployee(employeeId, dateStr, shiftType);
+    });
+  };
+
+  // Copy entire week schedule
+  const copyWeekSchedule = (sourceWeekStart: string, targetWeekStart: string) => {
+    const sourceStart = new Date(sourceWeekStart);
+    const targetStart = new Date(targetWeekStart);
+    
+    const updatedSchedule = [...schedule];
+    
+    // Copy each day of the week
+    for (let i = 0; i < 7; i++) {
+      const sourceDate = new Date(sourceStart);
+      sourceDate.setDate(sourceStart.getDate() + i);
+      const sourceDateStr = sourceDate.toISOString().split('T')[0];
+      
+      const targetDate = new Date(targetStart);
+      targetDate.setDate(targetStart.getDate() + i);
+      const targetDateStr = targetDate.toISOString().split('T')[0];
+      
+      // Find source day schedule
+      const sourceDaySchedule = schedule.find(s => s.date === sourceDateStr);
+      if (!sourceDaySchedule) continue;
+      
+      // Find or create target day schedule
+      let targetDaySchedule = updatedSchedule.find(s => s.date === targetDateStr);
+      if (!targetDaySchedule) {
+        targetDaySchedule = {
+          date: targetDateStr,
+          shifts: Object.fromEntries(AREAS.map(a => [a, {}])) as any,
+          specialStatus: {}
+        };
+        updatedSchedule.push(targetDaySchedule);
+      }
+      
+      // Copy all shifts
+      AREAS.forEach(area => {
+        SHIFT_TYPES.forEach(shift => {
+          const sourceAssignments = sourceDaySchedule.shifts[area]?.[shift];
+          if (sourceAssignments && sourceAssignments.length > 0) {
+            if (!targetDaySchedule.shifts[area]) {
+              targetDaySchedule.shifts[area] = {};
+            }
+            if (!targetDaySchedule.shifts[area][shift]) {
+              targetDaySchedule.shifts[area][shift] = [];
+            }
+            // Copy assignments (create new array to avoid reference issues)
+            targetDaySchedule.shifts[area][shift] = sourceAssignments.map(a => ({ ...a }));
+          }
+        });
+      });
+      
+      // Copy special status
+      if (sourceDaySchedule.specialStatus) {
+        if (!targetDaySchedule.specialStatus) {
+          targetDaySchedule.specialStatus = {};
+        }
+        Object.keys(sourceDaySchedule.specialStatus).forEach(employeeId => {
+          targetDaySchedule.specialStatus![employeeId] = sourceDaySchedule.specialStatus![employeeId];
+        });
+      }
+    }
+    
+    onScheduleUpdate(updatedSchedule);
+    setValidationMessage(`✅ Woche vom ${new Date(sourceWeekStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} wurde nach ${new Date(targetWeekStart).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} kopiert!`);
+    setTimeout(() => setValidationMessage(null), 5000);
+  };
+
+  // Remove shift or special status from employee
+  const removeShiftFromEmployee = (employeeId: string, dateStr: string) => {
+    const updatedSchedule = [...schedule];
+    const daySchedule = updatedSchedule.find(s => s.date === dateStr);
+
+    if (!daySchedule) return;
+
+    // Remove from special status
+    if (daySchedule.specialStatus) {
+      delete daySchedule.specialStatus[employeeId];
+    }
+
+    // Remove from all regular shifts
+    AREAS.forEach(area => {
+      SHIFT_TYPES.forEach(shift => {
+        if (daySchedule.shifts[area]?.[shift]) {
+          daySchedule.shifts[area][shift] = daySchedule.shifts[area][shift]!.filter(
+            a => a.employeeId !== employeeId
+          );
+        }
+      });
+    });
+
+    onScheduleUpdate(updatedSchedule);
+  };
+
   // Get shifts for an employee on a specific date
   const getEmployeeShiftsForDate = (employeeId: string, dateStr: string): string[] => {
     const daySchedule = weekSchedule.find(s => s.date === dateStr);
     if (!daySchedule) return [];
 
     const shifts: string[] = [];
+
+    // Check for special status (Urlaub/Krank) first
+    if (daySchedule.specialStatus?.[employeeId]) {
+      const status = daySchedule.specialStatus[employeeId];
+      if (status === 'Urlaub') shifts.push('U');
+      else if (status === 'Krank') shifts.push('K');
+      return shifts; // If special status, don't show regular shifts
+    }
     
     AREAS.forEach(area => {
       SHIFT_TYPES.forEach(shift => {
@@ -428,6 +615,107 @@ export const AdminView: React.FC<AdminViewProps> = ({
         ? prev.filter(d => d !== day)
         : [...prev, day]
     );
+  };
+
+  // Drag & Drop handlers for employee view
+  const handleEmployeeViewDragStart = (e: React.DragEvent, shiftType: ShiftType | SpecialStatus) => {
+    setDraggedShiftType(shiftType);
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', shiftType);
+    
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = '0.5';
+  };
+
+  const handleEmployeeViewDragEnd = (e: React.DragEvent) => {
+    const target = e.currentTarget as HTMLElement;
+    target.style.opacity = '1';
+    setDraggedShiftType(null);
+  };
+
+  const handleEmployeeViewDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleEmployeeViewDrop = (e: React.DragEvent, employeeId: string, dateStr: string) => {
+    e.preventDefault();
+    
+    if (!draggedShiftType) return;
+
+    // If multi-day mode is active and days are selected, assign to all selected days
+    if (multiDayMode && selectedDays.size > 0) {
+      // Add current cell to selection if not already selected
+      const daysToAssign = selectedDays.has(dateStr) 
+        ? Array.from(selectedDays) 
+        : [...Array.from(selectedDays), dateStr];
+      
+      // Assign to all selected days
+      assignShiftToMultipleDays(employeeId, daysToAssign, draggedShiftType);
+      setSelectedDays(new Set());
+      setMultiDayMode(false);
+    } else {
+      // Check if dropping on existing shift (remove it)
+      const currentShifts = getEmployeeShiftsForDate(employeeId, dateStr);
+      if (currentShifts.length > 0) {
+        // If dropping same type, remove it; otherwise replace
+        const shiftTypeStr = draggedShiftType === 'Frühschicht' ? 'F' :
+                            draggedShiftType === 'Mittelschicht' ? 'M' :
+                            draggedShiftType === 'Spätschicht' ? 'S' :
+                            draggedShiftType === 'Urlaub' ? 'U' : 'K';
+        
+        if (currentShifts.includes(shiftTypeStr)) {
+          removeShiftFromEmployee(employeeId, dateStr);
+        } else {
+          assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
+        }
+      } else {
+        assignShiftToEmployee(employeeId, dateStr, draggedShiftType);
+      }
+    }
+
+    setDraggedShiftType(null);
+  };
+
+  // Handle cell click for multi-day selection
+  const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
+    if (e.shiftKey && selectedDays.size > 0) {
+      // Select range from first selected day to current day
+      const sortedSelected = Array.from(selectedDays).sort();
+      const firstDate = sortedSelected[0];
+      const lastDate = sortedSelected[sortedSelected.length - 1];
+      const currentDate = new Date(dateStr);
+      const first = new Date(firstDate);
+      const last = new Date(lastDate);
+      
+      // Determine range
+      const rangeStart = currentDate < first ? currentDate : first;
+      const rangeEnd = currentDate > last ? currentDate : last;
+      
+      // Add all dates in range
+      const rangeDates: string[] = [];
+      for (let date = new Date(rangeStart); date <= rangeEnd; date.setDate(date.getDate() + 1)) {
+        rangeDates.push(date.toISOString().split('T')[0]);
+      }
+      
+      setSelectedDays(new Set(rangeDates));
+      setMultiDayMode(true);
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle selection
+      setSelectedDays(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(dateStr)) {
+          newSet.delete(dateStr);
+        } else {
+          newSet.add(dateStr);
+        }
+        return newSet;
+      });
+      setMultiDayMode(true);
+    } else if (multiDayMode) {
+      // Single click in multi-day mode: add to selection
+      setSelectedDays(prev => new Set([...prev, dateStr]));
+    }
   };
 
   const bulkAssignEmployees = () => {
@@ -741,6 +1029,107 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {viewMode === 'employee' ? (
         <div className="employee-overview-container">
           <h2 className="employee-overview-title">Mitarbeiter-Übersicht</h2>
+          
+          <div className="employee-view-controls">
+            <div className="control-group">
+              <label className="control-label">
+                <input
+                  type="checkbox"
+                  checked={multiDayMode}
+                  onChange={(e) => {
+                    setMultiDayMode(e.target.checked);
+                    if (!e.target.checked) setSelectedDays(new Set());
+                  }}
+                  className="control-checkbox"
+                />
+                Mehrfachauswahl aktivieren
+              </label>
+              <span className="control-hint">
+                (Strg/Cmd+Klick für einzelne Tage, Shift+Klick für Bereich)
+              </span>
+            </div>
+            
+            <div className="control-group">
+              <button
+                onClick={() => {
+                  const nextWeekStart = new Date(currentWeekStart);
+                  nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+                  copyWeekSchedule(currentWeekStart, nextWeekStart.toISOString().split('T')[0]);
+                }}
+                className="btn-copy-week"
+                title="Aktuelle Woche zur nächsten Woche kopieren"
+              >
+                📋 Woche kopieren → Nächste Woche
+              </button>
+            </div>
+            
+            {selectedDays.size > 0 && (
+              <div className="selection-info">
+                {selectedDays.size} Tag(e) ausgewählt
+                <button
+                  onClick={() => setSelectedDays(new Set())}
+                  className="btn-clear-selection"
+                >
+                  Auswahl löschen
+                </button>
+              </div>
+            )}
+          </div>
+          
+          <div className="shift-palette">
+            <div className="palette-title">Schichten zuweisen (ziehen & ablegen):</div>
+            <div className="palette-buttons">
+              <div
+                draggable
+                onDragStart={(e) => handleEmployeeViewDragStart(e, 'Frühschicht')}
+                onDragEnd={handleEmployeeViewDragEnd}
+                className={`palette-item palette-frueh ${draggedShiftType === 'Frühschicht' ? 'dragging' : ''}`}
+                title="Frühschicht zuweisen"
+              >
+                F - Früh
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => handleEmployeeViewDragStart(e, 'Mittelschicht')}
+                onDragEnd={handleEmployeeViewDragEnd}
+                className={`palette-item palette-mittel ${draggedShiftType === 'Mittelschicht' ? 'dragging' : ''}`}
+                title="Mittelschicht zuweisen"
+              >
+                M - Mittel
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => handleEmployeeViewDragStart(e, 'Spätschicht')}
+                onDragEnd={handleEmployeeViewDragEnd}
+                className={`palette-item palette-spaet ${draggedShiftType === 'Spätschicht' ? 'dragging' : ''}`}
+                title="Spätschicht zuweisen"
+              >
+                S - Spät
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => handleEmployeeViewDragStart(e, 'Urlaub')}
+                onDragEnd={handleEmployeeViewDragEnd}
+                className={`palette-item palette-urlaub ${draggedShiftType === 'Urlaub' ? 'dragging' : ''}`}
+                title="Urlaub zuweisen"
+              >
+                U - Urlaub
+              </div>
+              <div
+                draggable
+                onDragStart={(e) => handleEmployeeViewDragStart(e, 'Krank')}
+                onDragEnd={handleEmployeeViewDragEnd}
+                className={`palette-item palette-krank ${draggedShiftType === 'Krank' ? 'dragging' : ''}`}
+                title="Krank zuweisen"
+              >
+                K - Krank
+              </div>
+            </div>
+            <div className="palette-hint">
+              💡 Tipp: Ziehen Sie eine Schicht auf eine Zelle, um sie zuzuweisen. Ziehen Sie erneut auf eine belegte Zelle, um sie zu entfernen.
+            </div>
+          </div>
+
           <div className="employee-overview-wrapper">
             <table className="employee-overview-table">
               <thead>
@@ -767,9 +1156,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </td>
                     {weekSchedule.map(day => {
                       const shifts = getEmployeeShiftsForDate(employee.id, day.date);
+                      const hasShift = shifts.length > 0;
+                      const isUrlaub = shifts.includes('U');
+                      const isKrank = shifts.includes('K');
+                      const isSelected = selectedDays.has(day.date);
+                      
                       return (
-                        <td key={day.date} className="employee-shift-cell">
-                          {shifts.length > 0 ? (
+                        <td 
+                          key={day.date} 
+                          className={`employee-shift-cell ${draggedShiftType ? 'drop-zone-active' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                          onDragOver={handleEmployeeViewDragOver}
+                          onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
+                          onClick={(e) => handleCellClick(e, employee.id, day.date)}
+                          title={multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl"}
+                        >
+                          {hasShift ? (
                             <div className="shift-abbreviations">
                               {shifts.join(' ')}
                             </div>
