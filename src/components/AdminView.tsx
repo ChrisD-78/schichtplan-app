@@ -109,7 +109,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [draggedShiftFromCell, setDraggedShiftFromCell] = useState<{employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus} | null>(null);
   
   // Multi-day assignment state
-  const [multiDayMode, setMultiDayMode] = useState(false);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [lastSelectedCell, setLastSelectedCell] = useState<{ employeeId: string; dateStr: string } | null>(null);
   
@@ -556,6 +555,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       .map(key => key.split('|')[1]);
   };
 
+  const multiSelectTooltip = "Klick: Feld auswählen | Strg/Cmd+Klick: hinzufügen/entfernen | Shift+Klick (gleicher Mitarbeiter): Bereich";
+
   // Get all dates for a month calendar
   const getMonthDatesForCalendar = (yearMonth: string): Array<{ date: string; day: number; isCurrentMonth: boolean }> => {
     const [year, month] = yearMonth.split('-').map(Number);
@@ -943,7 +944,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     setSelectedCells(new Set());
     setLastSelectedCell(null);
-    setMultiDayMode(false);
   };
 
   const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
@@ -992,7 +992,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       
       // If multi-day mode is active and days are selected, copy to all selected days
-      if (multiDayMode && selectedDatesForEmployee.length > 0) {
+      if (selectedDatesForEmployee.length > 0) {
         const daysToAssign = selectedDatesForEmployee.filter(dayDate => 
           !(sourceEmployeeId === employeeId && dayDate === sourceDateStr)
         );
@@ -1010,7 +1010,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         
         setSelectedCells(new Set());
         setLastSelectedCell(null);
-        setMultiDayMode(false);
       } else {
         // Copy to single day
         assignShiftToEmployee(employeeId, dateStr, shiftType);
@@ -1020,7 +1019,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     } else {
       // Dragging from palette (new assignment)
       // If multi-day mode is active and days are selected, assign to all selected days
-      if (multiDayMode && selectedDatesForEmployee.length > 0) {
+      if (selectedDatesForEmployee.length > 0) {
         const daysToAssign = selectedDatesForEmployee.includes(dateStr)
           ? selectedDatesForEmployee
           : [...selectedDatesForEmployee, dateStr];
@@ -1037,7 +1036,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         
         setSelectedCells(new Set());
         setLastSelectedCell(null);
-        setMultiDayMode(false);
       } else {
         // Check if dropping on existing shift (remove it)
         if (currentDraggedShiftType) {
@@ -1068,8 +1066,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Handle cell click for multi-day selection
   const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
-    if (!multiDayMode) return;
-
     const key = getCellKey(employeeId, dateStr);
 
     if (e.shiftKey && lastSelectedCell && lastSelectedCell.employeeId === employeeId) {
@@ -1477,25 +1473,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
           
           <div className="employee-view-controls">
-            <div className="control-group">
-              <label className="control-label">
-                <input
-                  type="checkbox"
-                  checked={multiDayMode}
-                  onChange={(e) => {
-                    setMultiDayMode(e.target.checked);
-                    if (!e.target.checked) {
-                      setSelectedCells(new Set());
-                      setLastSelectedCell(null);
-                    }
-                  }}
-                  className="control-checkbox"
-                />
-                Mehrfachauswahl aktivieren
-              </label>
-              <span className="control-hint">
-                (Strg/Cmd+Klick für einzelne Tage, Shift+Klick für Bereich)
-              </span>
+            <div className="selection-hint">
+              Mehrfachauswahl ist immer aktiv: Klick markiert ein Feld, Strg/Cmd+Klick fügt hinzu oder entfernt, Shift+Klick markiert einen Bereich (gleicher Mitarbeiter).
             </div>
             
             <div className="control-group">
@@ -1813,7 +1792,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           month: '2-digit' 
                         });
                         
-                        let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
+                        let cellTitle = multiSelectTooltip;
                         const currentShiftType = draggedShiftFromCell?.shiftType || draggedShiftType;
                         if (isHovered && currentShiftType) {
                           if (draggedShiftFromCell) {
@@ -1943,7 +1922,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           });
                           
                           // Determine title based on state
-                          let cellTitle = multiDayMode ? "Strg/Cmd+Klick: Auswählen | Shift+Klick: Bereich" : "Klicken für Mehrfachauswahl";
+                        let cellTitle = multiSelectTooltip;
                           const currentShiftType = draggedShiftFromCell?.shiftType || draggedShiftType;
                           if (isHovered && currentShiftType) {
                             if (draggedShiftFromCell) {
