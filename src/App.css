@@ -1364,56 +1364,6 @@
   color: white;
 }
 
-.selection-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  background: #eef2ff;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  border: 2px dashed #a5b4fc;
-}
-
-.selection-label {
-  font-weight: 600;
-  color: #4c1d95;
-  font-size: 0.95rem;
-}
-
-.selection-buttons {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.selection-btn {
-  padding: 0.5rem 0.9rem;
-  border-radius: 10px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: white;
-  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
-  min-height: 40px;
-  min-width: 90px;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.selection-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
-}
-
-.selection-btn-urlaub {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-}
-
-.selection-btn-krank {
-  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
-}
-
 .selection-hint {
   background: #eef2ff;
   border-radius: 10px;

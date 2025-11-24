@@ -946,6 +946,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setLastSelectedCell(null);
   };
 
+  const handlePaletteClick = (shiftType: ShiftType | SpecialStatus) => {
+    if (selectedCells.size > 0) {
+      applyShiftToSelection(shiftType);
+    }
+  };
+
   const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
@@ -1505,50 +1511,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             )}
 
-            {selectedCells.size > 0 && (
-              <div className="selection-actions">
-                <span className="selection-label">Auswahl mit Schicht belegen:</span>
-                <div className="selection-buttons">
-                  <button
-                    onClick={() => applyShiftToSelection('Frühschicht')}
-                    className="selection-btn"
-                  >
-                    F - Früh
-                  </button>
-                  <button
-                    onClick={() => applyShiftToSelection('Mittelschicht')}
-                    className="selection-btn"
-                  >
-                    M - Mittel
-                  </button>
-                  <button
-                    onClick={() => applyShiftToSelection('Spätschicht')}
-                    className="selection-btn"
-                  >
-                    S - Spät
-                  </button>
-                  <button
-                    onClick={() => applyShiftToSelection('Urlaub')}
-                    className="selection-btn selection-btn-urlaub"
-                  >
-                    U - Urlaub
-                  </button>
-                  <button
-                    onClick={() => applyShiftToSelection('Krank')}
-                    className="selection-btn selection-btn-krank"
-                  >
-                    K - Krank
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
           
           <div className="shift-palette">
-            <div className="palette-title">Schichten zuweisen (ziehen & ablegen):</div>
+            <div className="palette-title">Schichten zuweisen (ziehen & ablegen oder Klick für Auswahl):</div>
             <div className="palette-buttons">
               <div
                 draggable
+                onClick={() => handlePaletteClick('Frühschicht')}
                 onDragStart={(e) => handleEmployeeViewDragStart(e, 'Frühschicht')}
                 onDragEnd={handleEmployeeViewDragEnd}
                 className={`palette-item palette-frueh ${draggedShiftType === 'Frühschicht' ? 'dragging' : ''}`}
@@ -1558,6 +1528,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div
                 draggable
+                onClick={() => handlePaletteClick('Mittelschicht')}
                 onDragStart={(e) => handleEmployeeViewDragStart(e, 'Mittelschicht')}
                 onDragEnd={handleEmployeeViewDragEnd}
                 className={`palette-item palette-mittel ${draggedShiftType === 'Mittelschicht' ? 'dragging' : ''}`}
@@ -1567,6 +1538,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div
                 draggable
+                onClick={() => handlePaletteClick('Spätschicht')}
                 onDragStart={(e) => handleEmployeeViewDragStart(e, 'Spätschicht')}
                 onDragEnd={handleEmployeeViewDragEnd}
                 className={`palette-item palette-spaet ${draggedShiftType === 'Spätschicht' ? 'dragging' : ''}`}
@@ -1576,6 +1548,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div
                 draggable
+                onClick={() => handlePaletteClick('Urlaub')}
                 onDragStart={(e) => handleEmployeeViewDragStart(e, 'Urlaub')}
                 onDragEnd={handleEmployeeViewDragEnd}
                 className={`palette-item palette-urlaub ${draggedShiftType === 'Urlaub' ? 'dragging' : ''}`}
@@ -1585,6 +1558,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div
                 draggable
+                onClick={() => handlePaletteClick('Krank')}
                 onDragStart={(e) => handleEmployeeViewDragStart(e, 'Krank')}
                 onDragEnd={handleEmployeeViewDragEnd}
                 className={`palette-item palette-krank ${draggedShiftType === 'Krank' ? 'dragging' : ''}`}
@@ -1594,7 +1568,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
             <div className="palette-hint">
-              💡 Tipp: Ziehen Sie eine Schicht auf eine Zelle, um sie zuzuweisen. Ziehen Sie erneut auf eine belegte Zelle, um sie zu entfernen.
+              💡 Tipp: Ziehen Sie eine Schicht auf eine Zelle oder klicken Sie bei markierten Feldern auf den Button, um alle ausgewählten Tage zu belegen. Ziehen Sie erneut auf eine belegte Zelle, um sie zu entfernen.
             </div>
           </div>
 
