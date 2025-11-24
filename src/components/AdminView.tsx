@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus, EmployeeColor } from '../types';
 
 interface AdminViewProps {
@@ -113,6 +113,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [lastSelectedCell, setLastSelectedCell] = useState<{ employeeId: string; dateStr: string } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'add' | 'remove'>('add');
+  const selectionDragRef = useRef(false);
+  const skipClickRef = useRef(false);
   
   // Week copy dialog state
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
@@ -1077,15 +1079,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
       if (isSelecting) {
         setIsSelecting(false);
         setSelectionMode('add');
+        if (selectionDragRef.current) {
+          skipClickRef.current = true;
+        }
+        selectionDragRef.current = false;
+      }
+    };
+
+    const handleMouseLeaveWindow = () => {
+      if (isSelecting) {
+        setIsSelecting(false);
+        setSelectionMode('add');
+        selectionDragRef.current = false;
       }
     };
 
     window.addEventListener('mouseup', handleMouseUpGlobal);
-    return () => window.removeEventListener('mouseup', handleMouseUpGlobal);
+    window.addEventListener('mouseleave', handleMouseLeaveWindow);
+    return () => {
+      window.removeEventListener('mouseup', handleMouseUpGlobal);
+      window.removeEventListener('mouseleave', handleMouseLeaveWindow);
+    };
   }, [isSelecting]);
 
   // Handle cell click for multi-day selection
   const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
+    if (skipClickRef.current) {
+      skipClickRef.current = false;
+      return;
+    }
+
     const key = getCellKey(employeeId, dateStr);
 
     if (e.shiftKey && lastSelectedCell && lastSelectedCell.employeeId === employeeId) {
@@ -1113,6 +1136,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleCellMouseDown = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    selectionDragRef.current = false;
+    skipClickRef.current = false;
     
     const key = getCellKey(employeeId, dateStr);
     const shouldRemove = selectedCells.has(key);
@@ -1134,6 +1159,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleCellMouseEnter = (employeeId: string, dateStr: string) => {
     if (!isSelecting) return;
+    selectionDragRef.current = true;
 
     const key = getCellKey(employeeId, dateStr);
     setSelectedCells(prev => {
