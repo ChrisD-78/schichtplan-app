@@ -307,12 +307,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return assignmentCount < minRequired;
   };
 
-  // Assign shift or special status to employee in employee view
-  const assignShiftToEmployee = (employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus) => {
+  const applyShiftToSchedule = (
+    baseSchedule: DaySchedule[],
+    employeeId: string,
+    dateStr: string,
+    shiftType: ShiftType | SpecialStatus
+  ): DaySchedule[] => {
     const employee = employees.find(e => e.id === employeeId);
-    if (!employee) return;
+    if (!employee) return baseSchedule;
 
-    const updatedSchedule = [...schedule];
+    const updatedSchedule = [...baseSchedule];
     let daySchedule = updatedSchedule.find(s => s.date === dateStr);
 
     if (!daySchedule) {
@@ -378,6 +382,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
     }
 
+    return updatedSchedule;
+  };
+
+  // Assign shift or special status to employee in employee view
+  const assignShiftToEmployee = (employeeId: string, dateStr: string, shiftType: ShiftType | SpecialStatus) => {
+    const updatedSchedule = applyShiftToSchedule(schedule, employeeId, dateStr, shiftType);
     onScheduleUpdate(updatedSchedule);
   };
 
@@ -937,11 +947,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
       grouped.get(employeeId)!.push(dateStr);
     });
 
+    let updatedSchedule = schedule;
     grouped.forEach((dates, employeeId) => {
       dates.forEach(dateStr => {
-        assignShiftToEmployee(employeeId, dateStr, shiftType);
+        updatedSchedule = applyShiftToSchedule(updatedSchedule, employeeId, dateStr, shiftType);
       });
     });
+    onScheduleUpdate(updatedSchedule);
 
     setValidationMessage(`✅ ${shiftType} wurde ${selectedCells.size} Feld(er) zugewiesen!`);
     setTimeout(() => setValidationMessage(null), 3000);
@@ -1011,9 +1023,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
           return;
         }
         
+        let updatedSchedule = schedule;
         daysToAssign.forEach(dayDate => {
-          assignShiftToEmployee(employeeId, dayDate, shiftType);
+          updatedSchedule = applyShiftToSchedule(updatedSchedule, employeeId, dayDate, shiftType);
         });
+        onScheduleUpdate(updatedSchedule);
         
         setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} auf ${daysToAssign.length} Tag(e) kopiert!`);
         setTimeout(() => setValidationMessage(null), 3000);
@@ -1036,9 +1050,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
         
         // Assign to all selected days for this employee
         if (currentDraggedShiftType) {
+          let updatedSchedule = schedule;
           daysToAssign.forEach(dayDate => {
-            assignShiftToEmployee(employeeId, dayDate, currentDraggedShiftType);
+            updatedSchedule = applyShiftToSchedule(updatedSchedule, employeeId, dayDate, currentDraggedShiftType);
           });
+          onScheduleUpdate(updatedSchedule);
           
           setValidationMessage(`✅ ${currentDraggedShiftType} wurde ${daysToAssign.length} Tag(en) zugewiesen!`);
           setTimeout(() => setValidationMessage(null), 3000);
