@@ -555,7 +555,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       .map(key => key.split('|')[1]);
   };
 
-  const multiSelectTooltip = "Klick: Feld auswählen | Strg/Cmd+Klick: hinzufügen/entfernen | Shift+Klick (gleicher Mitarbeiter): Bereich";
+  const multiSelectTooltip = "Klick: Feld wählen/entfernen | Strg/Cmd optional | Shift+Klick (gleicher Mitarbeiter): Bereich";
 
   // Get all dates for a month calendar
   const getMonthDatesForCalendar = (yearMonth: string): Array<{ date: string; day: number; isCurrentMonth: boolean }> => {
@@ -1075,20 +1075,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
         rangeDates.forEach(rangeDate => newSet.add(getCellKey(employeeId, rangeDate)));
         return newSet;
       });
-    } else if (e.ctrlKey || e.metaKey) {
+    } else {
       setSelectedCells(prev => {
         const newSet = new Set(prev);
         if (newSet.has(key)) {
           newSet.delete(key);
         } else {
-          newSet.add(key);
-        }
-        return newSet;
-      });
-    } else {
-      setSelectedCells(prev => {
-        const newSet = new Set<string>();
-        if (!prev.has(key) || prev.size > 1) {
           newSet.add(key);
         }
         return newSet;
@@ -1474,7 +1466,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           
           <div className="employee-view-controls">
             <div className="selection-hint">
-              Mehrfachauswahl ist immer aktiv: Klick markiert ein Feld, Strg/Cmd+Klick fügt hinzu oder entfernt, Shift+Klick markiert einen Bereich (gleicher Mitarbeiter).
+              Mehrfachauswahl ist immer aktiv: Klick markiert oder entfernt ein Feld, Shift+Klick (gleicher Mitarbeiter) markiert einen Bereich, Strg/Cmd ist optional.
             </div>
             
             <div className="control-group">
