@@ -1471,10 +1471,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
           
           <div className="employee-view-controls">
-            <div className="selection-hint">
-              Mehrfachauswahl ist immer aktiv: Klick markiert oder entfernt ein Feld, Shift+Klick (gleicher Mitarbeiter) markiert einen Bereich, Strg/Cmd ist optional.
-            </div>
-            
             <div className="control-group">
               <button
                 onClick={() => {
