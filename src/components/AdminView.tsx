@@ -110,7 +110,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   
   // Multi-day assignment state
   const [multiDayMode, setMultiDayMode] = useState(false);
-  const [selectedDays, setSelectedDays] = useState<Set<string>>(new Set());
+  const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
+  const [lastSelectedCell, setLastSelectedCell] = useState<{ employeeId: string; dateStr: string } | null>(null);
   
   // Week copy dialog state
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
@@ -534,6 +535,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return `${start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
   };
 
+  const getCellKey = (employeeId: string, dateStr: string) => `${employeeId}|${dateStr}`;
+
+  const getDateRange = (startDateStr: string, endDateStr: string): string[] => {
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
+    const range: string[] = [];
+    const step = startDate <= endDate ? 1 : -1;
+
+    for (let date = new Date(startDate); step === 1 ? date <= endDate : date >= endDate; date.setDate(date.getDate() + step)) {
+      range.push(date.toISOString().split('T')[0]);
+    }
+
+    return range;
+  };
+
+  const getSelectedDatesForEmployee = (employeeId: string): string[] => {
+    return Array.from(selectedCells)
+      .filter(key => key.startsWith(`${employeeId}|`))
+      .map(key => key.split('|')[1]);
+  };
+
   // Get all dates for a month calendar
   const getMonthDatesForCalendar = (yearMonth: string): Array<{ date: string; day: number; isCurrentMonth: boolean }> => {
     const [year, month] = yearMonth.split('-').map(Number);
@@ -900,6 +922,30 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }, 100);
   };
 
+  const applyShiftToSelection = (shiftType: ShiftType | SpecialStatus) => {
+    if (selectedCells.size === 0) return;
+
+    const grouped = new Map<string, string[]>();
+    selectedCells.forEach(key => {
+      const [employeeId, dateStr] = key.split('|');
+      if (!grouped.has(employeeId)) grouped.set(employeeId, []);
+      grouped.get(employeeId)!.push(dateStr);
+    });
+
+    grouped.forEach((dates, employeeId) => {
+      dates.forEach(dateStr => {
+        assignShiftToEmployee(employeeId, dateStr, shiftType);
+      });
+    });
+
+    setValidationMessage(`✅ ${shiftType} wurde ${selectedCells.size} Feld(er) zugewiesen!`);
+    setTimeout(() => setValidationMessage(null), 3000);
+
+    setSelectedCells(new Set());
+    setLastSelectedCell(null);
+    setMultiDayMode(false);
+  };
+
   const handleEmployeeViewDragOver = (e: React.DragEvent, employeeId: string, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
@@ -928,6 +974,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
       return;
     }
 
+    // Determine selected dates for the current employee
+    const selectedDatesForEmployee = getSelectedDatesForEmployee(employeeId);
+
     // Clear drag state immediately to prevent handleShiftDragEnd from interfering
     setDraggedShiftType(null);
     setDraggedShiftFromCell(null);
@@ -943,8 +992,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       
       // If multi-day mode is active and days are selected, copy to all selected days
-      if (multiDayMode && selectedDays.size > 0) {
-        const daysToAssign = Array.from(selectedDays).filter(dayDate => 
+      if (multiDayMode && selectedDatesForEmployee.length > 0) {
+        const daysToAssign = selectedDatesForEmployee.filter(dayDate => 
           !(sourceEmployeeId === employeeId && dayDate === sourceDateStr)
         );
         
@@ -959,7 +1008,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
         setValidationMessage(`✅ ${shiftType} wurde von ${new Date(sourceDateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} auf ${daysToAssign.length} Tag(e) kopiert!`);
         setTimeout(() => setValidationMessage(null), 3000);
         
-        setSelectedDays(new Set());
+        setSelectedCells(new Set());
+        setLastSelectedCell(null);
         setMultiDayMode(false);
       } else {
         // Copy to single day
@@ -970,12 +1020,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     } else {
       // Dragging from palette (new assignment)
       // If multi-day mode is active and days are selected, assign to all selected days
-      if (multiDayMode && selectedDays.size > 0) {
-        // Filter selected days to only include dates for the same employee (if needed)
-        // For now, we'll use all selected days regardless of employee
-        const daysToAssign = selectedDays.has(dateStr) 
-          ? Array.from(selectedDays) 
-          : [...Array.from(selectedDays), dateStr];
+      if (multiDayMode && selectedDatesForEmployee.length > 0) {
+        const daysToAssign = selectedDatesForEmployee.includes(dateStr)
+          ? selectedDatesForEmployee
+          : [...selectedDatesForEmployee, dateStr];
         
         // Assign to all selected days for this employee
         if (currentDraggedShiftType) {
@@ -987,7 +1035,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
           setTimeout(() => setValidationMessage(null), 3000);
         }
         
-        setSelectedDays(new Set());
+        setSelectedCells(new Set());
+        setLastSelectedCell(null);
         setMultiDayMode(false);
       } else {
         // Check if dropping on existing shift (remove it)
@@ -1018,44 +1067,39 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   // Handle cell click for multi-day selection
-  const handleCellClick = (e: React.MouseEvent, _employeeId: string, dateStr: string) => {
-    if (e.shiftKey && selectedDays.size > 0) {
-      // Select range from first selected day to current day
-      const sortedSelected = Array.from(selectedDays).sort();
-      const firstDate = sortedSelected[0];
-      const lastDate = sortedSelected[sortedSelected.length - 1];
-      const currentDate = new Date(dateStr);
-      const first = new Date(firstDate);
-      const last = new Date(lastDate);
-      
-      // Determine range
-      const rangeStart = currentDate < first ? currentDate : first;
-      const rangeEnd = currentDate > last ? currentDate : last;
-      
-      // Add all dates in range
-      const rangeDates: string[] = [];
-      for (let date = new Date(rangeStart); date <= rangeEnd; date.setDate(date.getDate() + 1)) {
-        rangeDates.push(date.toISOString().split('T')[0]);
-      }
-      
-      setSelectedDays(new Set(rangeDates));
-      setMultiDayMode(true);
-    } else if (e.ctrlKey || e.metaKey) {
-      // Toggle selection
-      setSelectedDays(prev => {
+  const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
+    if (!multiDayMode) return;
+
+    const key = getCellKey(employeeId, dateStr);
+
+    if (e.shiftKey && lastSelectedCell && lastSelectedCell.employeeId === employeeId) {
+      const rangeDates = getDateRange(lastSelectedCell.dateStr, dateStr);
+      setSelectedCells(prev => {
         const newSet = new Set(prev);
-        if (newSet.has(dateStr)) {
-          newSet.delete(dateStr);
+        rangeDates.forEach(rangeDate => newSet.add(getCellKey(employeeId, rangeDate)));
+        return newSet;
+      });
+    } else if (e.ctrlKey || e.metaKey) {
+      setSelectedCells(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(key)) {
+          newSet.delete(key);
         } else {
-          newSet.add(dateStr);
+          newSet.add(key);
         }
         return newSet;
       });
-      setMultiDayMode(true);
-    } else if (multiDayMode) {
-      // Single click in multi-day mode: add to selection
-      setSelectedDays(prev => new Set([...prev, dateStr]));
+    } else {
+      setSelectedCells(prev => {
+        const newSet = new Set<string>();
+        if (!prev.has(key) || prev.size > 1) {
+          newSet.add(key);
+        }
+        return newSet;
+      });
     }
+
+    setLastSelectedCell({ employeeId, dateStr });
   };
 
   const bulkAssignEmployees = () => {
@@ -1440,7 +1484,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   checked={multiDayMode}
                   onChange={(e) => {
                     setMultiDayMode(e.target.checked);
-                    if (!e.target.checked) setSelectedDays(new Set());
+                    if (!e.target.checked) {
+                      setSelectedCells(new Set());
+                      setLastSelectedCell(null);
+                    }
                   }}
                   className="control-checkbox"
                 />
@@ -1472,15 +1519,56 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </button>
             </div>
             
-            {selectedDays.size > 0 && (
+            {selectedCells.size > 0 && (
               <div className="selection-info">
-                {selectedDays.size} Tag(e) ausgewählt
+                {selectedCells.size} Feld(er) ausgewählt
                 <button
-                  onClick={() => setSelectedDays(new Set())}
+                  onClick={() => {
+                    setSelectedCells(new Set());
+                    setLastSelectedCell(null);
+                  }}
                   className="btn-clear-selection"
                 >
                   Auswahl löschen
                 </button>
+              </div>
+            )}
+
+            {selectedCells.size > 0 && (
+              <div className="selection-actions">
+                <span className="selection-label">Auswahl mit Schicht belegen:</span>
+                <div className="selection-buttons">
+                  <button
+                    onClick={() => applyShiftToSelection('Frühschicht')}
+                    className="selection-btn"
+                  >
+                    F - Früh
+                  </button>
+                  <button
+                    onClick={() => applyShiftToSelection('Mittelschicht')}
+                    className="selection-btn"
+                  >
+                    M - Mittel
+                  </button>
+                  <button
+                    onClick={() => applyShiftToSelection('Spätschicht')}
+                    className="selection-btn"
+                  >
+                    S - Spät
+                  </button>
+                  <button
+                    onClick={() => applyShiftToSelection('Urlaub')}
+                    className="selection-btn selection-btn-urlaub"
+                  >
+                    U - Urlaub
+                  </button>
+                  <button
+                    onClick={() => applyShiftToSelection('Krank')}
+                    className="selection-btn selection-btn-krank"
+                  >
+                    K - Krank
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1715,9 +1803,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         const hasShift = shifts.length > 0;
                         const isUrlaub = shifts.includes('U');
                         const isKrank = shifts.includes('K');
-                        const isSelected = selectedDays.has(day.date);
+                        const isSelected = selectedCells.has(getCellKey(employee.id, day.date));
                         const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === day.date;
-                        const isInSelectedGroup = isSelected && selectedDays.size > 0 && (draggedShiftType || draggedShiftFromCell);
+                        const isInSelectedGroup = isSelected && selectedCells.size > 0 && (draggedShiftType || draggedShiftFromCell);
                         
                         const dateDisplay = new Date(day.date).toLocaleDateString('de-DE', { 
                           weekday: 'short', 
@@ -1734,12 +1822,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           } else {
                             cellTitle = `${currentShiftType} zuweisen: ${dateDisplay}`;
                           }
-                        } else if (isInSelectedGroup) {
+                        } else if (isInSelectedGroup && currentShiftType) {
                           if (draggedShiftFromCell) {
                             const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                            cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedDays.size} ausgewählte Tage kopiert`;
+                            cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedCells.size} ausgewählte Tage kopiert`;
                           } else {
-                            cellTitle = `${currentShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                            cellTitle = `${currentShiftType} wird allen ${selectedCells.size} ausgewählten Tagen zugewiesen`;
                           }
                         }
                         
@@ -1841,13 +1929,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           const hasShift = shifts.length > 0;
                           const isUrlaub = shifts.includes('U');
                           const isKrank = shifts.includes('K');
-                          const isSelected = selectedDays.has(dateStr);
+                          const isSelected = selectedCells.has(getCellKey(employee.id, dateStr));
                           const date = new Date(dateStr);
                           const dayOfWeek = date.getDay();
                           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
                           
                           const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === dateStr;
-                          const isInSelectedGroup = isSelected && selectedDays.size > 0 && (draggedShiftType || draggedShiftFromCell);
+                          const isInSelectedGroup = isSelected && selectedCells.size > 0 && (draggedShiftType || draggedShiftFromCell);
                           const dateDisplay = new Date(dateStr).toLocaleDateString('de-DE', { 
                             weekday: 'short', 
                             day: '2-digit', 
@@ -1864,12 +1952,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             } else {
                               cellTitle = `${currentShiftType} zuweisen: ${dateDisplay}`;
                             }
-                          } else if (isInSelectedGroup) {
+                          } else if (isInSelectedGroup && currentShiftType) {
                             if (draggedShiftFromCell) {
                               const sourceDate = new Date(draggedShiftFromCell.dateStr).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                              cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedDays.size} ausgewählte Tage kopiert`;
+                              cellTitle = `${currentShiftType} von ${sourceDate} wird auf ${selectedCells.size} ausgewählte Tage kopiert`;
                             } else {
-                              cellTitle = `${currentShiftType} wird allen ${selectedDays.size} ausgewählten Tagen zugewiesen`;
+                              cellTitle = `${currentShiftType} wird allen ${selectedCells.size} ausgewählten Tagen zugewiesen`;
                             }
                           }
                           
