@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus, EmployeeColor } from '../types';
 
 interface AdminViewProps {
@@ -111,6 +111,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Multi-day assignment state
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [lastSelectedCell, setLastSelectedCell] = useState<{ employeeId: string; dateStr: string } | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState<'add' | 'remove'>('add');
   
   // Week copy dialog state
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
@@ -555,7 +557,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       .map(key => key.split('|')[1]);
   };
 
-  const multiSelectTooltip = "Klick: Feld wählen/entfernen | Strg/Cmd optional | Shift+Klick (gleicher Mitarbeiter): Bereich";
+  const multiSelectTooltip = "Klick: Feld wählen/entfernen | Strg/Cmd optional | Shift+Klick (gleicher Mitarbeiter): Bereich | Gedrückt halten & ziehen zum Markieren";
 
   // Get all dates for a month calendar
   const getMonthDatesForCalendar = (yearMonth: string): Array<{ date: string; day: number; isCurrentMonth: boolean }> => {
@@ -1070,6 +1072,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setHoveredDropCell(null);
   };
 
+  useEffect(() => {
+    const handleMouseUpGlobal = () => {
+      if (isSelecting) {
+        setIsSelecting(false);
+        setSelectionMode('add');
+      }
+    };
+
+    window.addEventListener('mouseup', handleMouseUpGlobal);
+    return () => window.removeEventListener('mouseup', handleMouseUpGlobal);
+  }, [isSelecting]);
+
   // Handle cell click for multi-day selection
   const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
     const key = getCellKey(employeeId, dateStr);
@@ -1094,6 +1108,43 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
 
     setLastSelectedCell({ employeeId, dateStr });
+  };
+
+  const handleCellMouseDown = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    
+    const key = getCellKey(employeeId, dateStr);
+    const shouldRemove = selectedCells.has(key);
+    setSelectionMode(shouldRemove ? 'remove' : 'add');
+    setIsSelecting(true);
+
+    setSelectedCells(prev => {
+      const newSet = new Set(prev);
+      if (shouldRemove) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+
+    setLastSelectedCell({ employeeId, dateStr });
+  };
+
+  const handleCellMouseEnter = (employeeId: string, dateStr: string) => {
+    if (!isSelecting) return;
+
+    const key = getCellKey(employeeId, dateStr);
+    setSelectedCells(prev => {
+      const newSet = new Set(prev);
+      if (selectionMode === 'remove') {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
   };
 
   const bulkAssignEmployees = () => {
@@ -1776,6 +1827,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <td 
                             key={day.date} 
                             className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            onMouseDown={(e) => handleCellMouseDown(e, employee.id, day.date)}
+                            onMouseEnter={() => handleCellMouseEnter(employee.id, day.date)}
                             onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
                             onDragLeave={handleEmployeeViewDragLeave}
                             onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
@@ -1906,6 +1959,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             <td 
                               key={dateStr} 
                               className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              onMouseDown={(e) => handleCellMouseDown(e, employee.id, dateStr)}
+                              onMouseEnter={() => handleCellMouseEnter(employee.id, dateStr)}
                               onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}
                               onDragLeave={handleEmployeeViewDragLeave}
                               onDrop={(e) => handleEmployeeViewDrop(e, employee.id, dateStr)}
