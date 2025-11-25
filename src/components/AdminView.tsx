@@ -121,10 +121,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const skipClickRef = useRef(false);
   
   // Week copy dialog state
-  // Filter state for employee view
-  const [filterArea, setFilterArea] = useState<AreaType | 'all'>('all');
-  const [filterName, setFilterName] = useState<string>('');
-  const [filterColor, setFilterColor] = useState<EmployeeColor | 'all'>('all');
+  // Sort state for employee view
+  const [sortBy, setSortBy] = useState<'name' | 'area' | 'color'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
   const [copySourceWeek, setCopySourceWeek] = useState<string>(currentWeekStart);
@@ -580,30 +579,51 @@ export const AdminView: React.FC<AdminViewProps> = ({
       .map(key => key.split('|')[1]);
   };
 
-  // Filter employees based on filter criteria
-  const getFilteredEmployees = () => {
-    return employees.filter(employee => {
-      // Filter by area
-      if (filterArea !== 'all' && !employee.areas.includes(filterArea)) {
-        return false;
+  // Sort employees based on sort criteria
+  const getSortedEmployees = () => {
+    const sorted = [...employees];
+    
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+          const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+          comparison = nameA.localeCompare(nameB, 'de');
+          break;
+          
+        case 'area':
+          // Sort by first area (primary area)
+          const areaA = a.areas[0] || '';
+          const areaB = b.areas[0] || '';
+          comparison = areaA.localeCompare(areaB, 'de');
+          // If same area, sort by name
+          if (comparison === 0) {
+            const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+            const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+            comparison = nameA.localeCompare(nameB, 'de');
+          }
+          break;
+          
+        case 'color':
+          // Sort by color, then by name
+          const colorA = a.color || '';
+          const colorB = b.color || '';
+          comparison = colorA.localeCompare(colorB, 'de');
+          // If same color, sort by name
+          if (comparison === 0) {
+            const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+            const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+            comparison = nameA.localeCompare(nameB, 'de');
+          }
+          break;
       }
       
-      // Filter by name
-      if (filterName.trim() !== '') {
-        const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
-        const searchTerm = filterName.toLowerCase();
-        if (!fullName.includes(searchTerm)) {
-          return false;
-        }
-      }
-      
-      // Filter by color
-      if (filterColor !== 'all' && employee.color !== filterColor) {
-        return false;
-      }
-      
-      return true;
+      return sortOrder === 'asc' ? comparison : -comparison;
     });
+    
+    return sorted;
   };
 
   const multiSelectTooltip = "Klick: Feld wählen/entfernen | Strg/Cmd optional | Shift+Klick (gleicher Mitarbeiter): Bereich | Gedrückt halten & ziehen zum Markieren";
@@ -1694,57 +1714,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </button>
           </div>
 
-          <div className="employee-filters">
-            <div className="filter-group">
-              <label>Einsatzbereich:</label>
+          <div className="employee-sort">
+            <div className="sort-group">
+              <label>Sortieren nach:</label>
               <select 
-                value={filterArea} 
-                onChange={(e) => setFilterArea(e.target.value as AreaType | 'all')}
-                className="filter-select"
+                value={sortBy} 
+                onChange={(e) => {
+                  const newSortBy = e.target.value as 'name' | 'area' | 'color';
+                  // If clicking the same sort option, toggle order
+                  if (newSortBy === sortBy) {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortBy(newSortBy);
+                    setSortOrder('asc');
+                  }
+                }}
+                className="sort-select"
               >
-                <option value="all">Alle</option>
-                {AREAS.map(area => (
-                  <option key={area} value={area}>{area}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="filter-group">
-              <label>Name:</label>
-              <input
-                type="text"
-                value={filterName}
-                onChange={(e) => setFilterName(e.target.value)}
-                placeholder="Name suchen..."
-                className="filter-input"
-              />
-            </div>
-            
-            <div className="filter-group">
-              <label>Farbe:</label>
-              <select 
-                value={filterColor} 
-                onChange={(e) => setFilterColor(e.target.value as EmployeeColor | 'all')}
-                className="filter-select"
-              >
-                <option value="all">Alle</option>
-                <option value="Rot">Rot</option>
-                <option value="Braun">Braun</option>
-                <option value="Schwarz">Schwarz</option>
-                <option value="Grün">Grün</option>
-                <option value="Violett">Violett</option>
+                <option value="name">Name (alphabetisch)</option>
+                <option value="area">Einsatzbereich</option>
+                <option value="color">Farbe</option>
               </select>
             </div>
             
             <button 
-              className="btn-clear-filters"
-              onClick={() => {
-                setFilterArea('all');
-                setFilterName('');
-                setFilterColor('all');
-              }}
+              className="btn-sort-order"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              title={sortOrder === 'asc' ? 'Aufsteigend' : 'Absteigend'}
             >
-              Filter zurücksetzen
+              {sortOrder === 'asc' ? '↑' : '↓'}
             </button>
           </div>
 
@@ -2029,7 +2027,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {getFilteredEmployees().map(employee => (
+                  {getSortedEmployees().map(employee => (
                     <tr key={employee.id}>
                       <td className="employee-name-cell">
                         <div className="employee-name-with-color">
@@ -2162,7 +2160,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {getFilteredEmployees().map(employee => (
+                  {getSortedEmployees().map(employee => (
                     <tr key={employee.id}>
                       <td className="employee-name-cell">
                         <div className="employee-name-with-color">
