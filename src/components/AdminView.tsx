@@ -1714,38 +1714,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </button>
           </div>
 
-          <div className="employee-sort">
-            <div className="sort-group">
-              <label>Sortieren nach:</label>
-              <select 
-                value={sortBy} 
-                onChange={(e) => {
-                  const newSortBy = e.target.value as 'name' | 'area' | 'color';
-                  // If clicking the same sort option, toggle order
-                  if (newSortBy === sortBy) {
-                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortBy(newSortBy);
-                    setSortOrder('asc');
-                  }
-                }}
-                className="sort-select"
-              >
-                <option value="name">Name (alphabetisch)</option>
-                <option value="area">Einsatzbereich</option>
-                <option value="color">Farbe</option>
-              </select>
-            </div>
-            
-            <button 
-              className="btn-sort-order"
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              title={sortOrder === 'asc' ? 'Aufsteigend' : 'Absteigend'}
-            >
-              {sortOrder === 'asc' ? '↑' : '↓'}
-            </button>
-          </div>
-
           {employeeViewMode === 'week' ? (
             <>
               <div className="week-navigation-employee">
@@ -2008,8 +1976,40 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
 
           {employeeViewMode === 'week' ? (
-            <div className="employee-overview-wrapper">
-              <table className="employee-overview-table">
+            <>
+              <div className="employee-sort">
+                <div className="sort-group">
+                  <label>Sortieren nach:</label>
+                  <select 
+                    value={sortBy} 
+                    onChange={(e) => {
+                      const newSortBy = e.target.value as 'name' | 'area' | 'color';
+                      // If clicking the same sort option, toggle order
+                      if (newSortBy === sortBy) {
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortBy(newSortBy);
+                        setSortOrder('asc');
+                      }
+                    }}
+                    className="sort-select"
+                  >
+                    <option value="name">Name (alphabetisch)</option>
+                    <option value="area">Einsatzbereich</option>
+                    <option value="color">Farbe</option>
+                  </select>
+                </div>
+                
+                <button 
+                  className="btn-sort-order"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  title={sortOrder === 'asc' ? 'Aufsteigend' : 'Absteigend'}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+              <div className="employee-overview-wrapper">
+                <table className="employee-overview-table">
                 <thead>
                   <tr>
                     <th className="employee-name-header">Mitarbeiter</th>
@@ -2131,10 +2131,43 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           ) : (
-            <div className="employee-month-wrapper">
-              <table className="employee-month-table">
+            <>
+              <div className="employee-sort">
+                <div className="sort-group">
+                  <label>Sortieren nach:</label>
+                  <select 
+                    value={sortBy} 
+                    onChange={(e) => {
+                      const newSortBy = e.target.value as 'name' | 'area' | 'color';
+                      // If clicking the same sort option, toggle order
+                      if (newSortBy === sortBy) {
+                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortBy(newSortBy);
+                        setSortOrder('asc');
+                      }
+                    }}
+                    className="sort-select"
+                  >
+                    <option value="name">Name (alphabetisch)</option>
+                    <option value="area">Einsatzbereich</option>
+                    <option value="color">Farbe</option>
+                  </select>
+                </div>
+                
+                <button 
+                  className="btn-sort-order"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  title={sortOrder === 'asc' ? 'Aufsteigend' : 'Absteigend'}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+              <div className="employee-month-wrapper">
+                <table className="employee-month-table">
                 <thead>
                   <tr>
                     <th className="employee-name-header">Mitarbeiter</th>
@@ -2271,10 +2304,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
-        </div>
-      ) : (
+            </div>
+          ) : (
         <div className="week-view-container">
           {AREAS.map(area => (
           <div key={area} className="area-section">
