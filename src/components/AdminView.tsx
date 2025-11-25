@@ -1091,7 +1091,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   useEffect(() => {
-    const handleMouseUpGlobal = () => {
+    const handlePointerUpGlobal = () => {
       if (isSelecting) {
         setIsSelecting(false);
         setSelectionMode('add');
@@ -1102,7 +1102,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
     };
 
-    const handleMouseLeaveWindow = () => {
+    const handlePointerCancel = () => {
       if (isSelecting) {
         setIsSelecting(false);
         setSelectionMode('add');
@@ -1110,11 +1110,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
     };
 
-    window.addEventListener('mouseup', handleMouseUpGlobal);
-    window.addEventListener('mouseleave', handleMouseLeaveWindow);
+    window.addEventListener('pointerup', handlePointerUpGlobal);
+    window.addEventListener('pointercancel', handlePointerCancel);
     return () => {
-      window.removeEventListener('mouseup', handleMouseUpGlobal);
-      window.removeEventListener('mouseleave', handleMouseLeaveWindow);
+      window.removeEventListener('pointerup', handlePointerUpGlobal);
+      window.removeEventListener('pointercancel', handlePointerCancel);
     };
   }, [isSelecting]);
 
@@ -1149,9 +1149,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setLastSelectedCell({ employeeId, dateStr });
   };
 
-  const handleCellMouseDown = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
+  const handleCellPointerDown = (e: React.PointerEvent, employeeId: string, dateStr: string) => {
+    // Only handle primary button (left mouse button or touch)
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    
+    // For touch devices, prevent default scrolling during drag selection
+    if (e.pointerType === 'touch') {
+      e.preventDefault();
+    }
+    
     selectionDragRef.current = false;
     skipClickRef.current = false;
     
@@ -1171,10 +1177,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     setLastSelectedCell({ employeeId, dateStr });
+    
+    // Capture pointer for better touch support
+    if (e.currentTarget.setPointerCapture) {
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (err) {
+        // setPointerCapture might fail, ignore
+      }
+    }
   };
 
-  const handleCellMouseEnter = (employeeId: string, dateStr: string) => {
+  const handleCellPointerEnter = (e: React.PointerEvent, employeeId: string, dateStr: string) => {
     if (!isSelecting) return;
+    
+    // Only process if the pointer is still down (for touch, check if we have an active pointer)
+    if (e.pointerType === 'mouse' && e.buttons === 0) return;
+    
     selectionDragRef.current = true;
 
     const key = getCellKey(employeeId, dateStr);
@@ -1869,8 +1888,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <td 
                             key={day.date} 
                             className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
-                            onMouseDown={(e) => handleCellMouseDown(e, employee.id, day.date)}
-                            onMouseEnter={() => handleCellMouseEnter(employee.id, day.date)}
+                            onPointerDown={(e) => handleCellPointerDown(e, employee.id, day.date)}
+                            onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, day.date)}
                             onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
                             onDragLeave={handleEmployeeViewDragLeave}
                             onDrop={(e) => handleEmployeeViewDrop(e, employee.id, day.date)}
@@ -2001,8 +2020,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             <td 
                               key={dateStr} 
                               className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
-                              onMouseDown={(e) => handleCellMouseDown(e, employee.id, dateStr)}
-                              onMouseEnter={() => handleCellMouseEnter(employee.id, dateStr)}
+                              onPointerDown={(e) => handleCellPointerDown(e, employee.id, dateStr)}
+                              onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, dateStr)}
                               onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}
                               onDragLeave={handleEmployeeViewDragLeave}
                               onDrop={(e) => handleEmployeeViewDrop(e, employee.id, dateStr)}
