@@ -337,9 +337,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
       daySchedule.specialStatus = {};
     }
 
-    // If assigning Urlaub, Krank, or any vacation status, remove all regular shifts and set special status
+    // If assigning Urlaub, Krank, or any vacation/overhours status, remove all regular shifts and set special status
     if (shiftType === 'Urlaub' || shiftType === 'Krank' || 
-        shiftType === 'Urlaub_beantragt' || shiftType === 'Urlaub_genehmigt' || shiftType === 'Urlaub_abgelehnt') {
+        shiftType === 'Urlaub_beantragt' || shiftType === 'Urlaub_genehmigt' || shiftType === 'Urlaub_abgelehnt' ||
+        shiftType === 'Überstunden_beantragt' || shiftType === 'Überstunden_genehmigt' || shiftType === 'Überstunden_abgelehnt') {
       // Remove employee from all regular shifts on this date
       AREAS.forEach(area => {
         SHIFT_TYPES.forEach(shift => {
@@ -721,12 +722,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     const shifts: string[] = [];
 
-    // Check for special status (Urlaub/Krank) first
+    // Check for special status (Urlaub/Krank/Überstunden) first
     if (daySchedule.specialStatus?.[employeeId]) {
       const status = daySchedule.specialStatus[employeeId];
       if (status === 'Urlaub' || status === 'Urlaub_genehmigt') shifts.push('U');
       else if (status === 'Urlaub_beantragt') shifts.push('U_beantragt');
       else if (status === 'Urlaub_abgelehnt') shifts.push('U_abgelehnt');
+      else if (status === 'Überstunden_beantragt') shifts.push('Ü_beantragt');
+      else if (status === 'Überstunden_genehmigt') shifts.push('Ü_genehmigt');
+      else if (status === 'Überstunden_abgelehnt') shifts.push('Ü_abgelehnt');
       else if (status === 'Krank') shifts.push('K');
       return shifts; // If special status, don't show regular shifts
     }
@@ -1390,43 +1394,54 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="vacation-requests-list">
               {vacationRequests
                 .filter(r => r.status === 'pending')
-                .map(request => (
-                  <div key={request.id} className="vacation-request-item">
-                    <div className="vacation-request-info">
-                      <strong>{request.employeeName}</strong>
-                      <span className="vacation-date">
-                        {new Date(request.date).toLocaleDateString('de-DE', { 
-                          weekday: 'long',
-                          day: '2-digit', 
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
-                      </span>
-                      <span className="vacation-requested-at">
-                        Beantragt: {new Date(request.requestedAt).toLocaleDateString('de-DE', { 
-                          day: '2-digit', 
-                          month: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </span>
+                .map(request => {
+                  const startDate = new Date(request.startDate);
+                  const endDate = new Date(request.endDate);
+                  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                  
+                  return (
+                    <div key={request.id} className="vacation-request-item">
+                      <div className="vacation-request-info">
+                        <strong>{request.employeeName}</strong>
+                        <span className="vacation-type-badge">{request.type === 'Urlaub' ? '🏖️ Urlaub' : '⏰ Überstunden'}</span>
+                        <span className="vacation-date">
+                          {startDate.toLocaleDateString('de-DE', { 
+                            weekday: 'short',
+                            day: '2-digit', 
+                            month: '2-digit'
+                          })} - {endDate.toLocaleDateString('de-DE', { 
+                            weekday: 'short',
+                            day: '2-digit', 
+                            month: '2-digit',
+                            year: 'numeric'
+                          })} ({daysDiff} Tag{daysDiff > 1 ? 'e' : ''})
+                        </span>
+                        <span className="vacation-requested-at">
+                          Beantragt: {new Date(request.requestedAt).toLocaleDateString('de-DE', { 
+                            day: '2-digit', 
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <div className="vacation-request-actions">
+                        <button 
+                          className="btn-approve"
+                          onClick={() => onVacationDecision(request.id, true)}
+                        >
+                          ✅ Genehmigen
+                        </button>
+                        <button 
+                          className="btn-reject"
+                          onClick={() => onVacationDecision(request.id, false)}
+                        >
+                          ❌ Ablehnen
+                        </button>
+                      </div>
                     </div>
-                    <div className="vacation-request-actions">
-                      <button 
-                        className="btn-approve"
-                        onClick={() => onVacationDecision(request.id, true)}
-                      >
-                        ✅ Genehmigen
-                      </button>
-                      <button 
-                        className="btn-reject"
-                        onClick={() => onVacationDecision(request.id, false)}
-                      >
-                        ❌ Ablehnen
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         )}
@@ -1951,6 +1966,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         const isUrlaub = shifts.includes('U') || shifts.includes('U_beantragt') || shifts.includes('U_abgelehnt');
                         const isUrlaubBeantragt = shifts.includes('U_beantragt');
                         const isUrlaubAbgelehnt = shifts.includes('U_abgelehnt');
+                        const isUeberstunden = shifts.includes('Ü_beantragt') || shifts.includes('Ü_genehmigt') || shifts.includes('Ü_abgelehnt');
+                        const isUeberstundenBeantragt = shifts.includes('Ü_beantragt');
+                        const isUeberstundenAbgelehnt = shifts.includes('Ü_abgelehnt');
                         const isKrank = shifts.includes('K');
                         const isSelected = selectedCells.has(getCellKey(employee.id, day.date));
                         const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === day.date;
@@ -1985,7 +2003,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             key={day.date} 
                             data-employee-id={employee.id}
                             data-date-str={day.date}
-                            className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isUeberstunden ? 'status-ueberstunden' : ''} ${isUeberstundenBeantragt ? 'status-ueberstunden-beantragt' : ''} ${isUeberstundenAbgelehnt ? 'status-ueberstunden-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
                             onPointerDown={(e) => handleCellPointerDown(e, employee.id, day.date)}
                             onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, day.date)}
                             onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
@@ -2083,6 +2101,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           const isUrlaub = shifts.includes('U') || shifts.includes('U_beantragt') || shifts.includes('U_abgelehnt');
                           const isUrlaubBeantragt = shifts.includes('U_beantragt');
                           const isUrlaubAbgelehnt = shifts.includes('U_abgelehnt');
+                          const isUeberstunden = shifts.includes('Ü_beantragt') || shifts.includes('Ü_genehmigt') || shifts.includes('Ü_abgelehnt');
+                          const isUeberstundenBeantragt = shifts.includes('Ü_beantragt');
+                          const isUeberstundenAbgelehnt = shifts.includes('Ü_abgelehnt');
                           const isKrank = shifts.includes('K');
                           const isSelected = selectedCells.has(getCellKey(employee.id, dateStr));
                           const date = new Date(dateStr);
@@ -2121,7 +2142,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                               key={dateStr} 
                               data-employee-id={employee.id}
                               data-date-str={dateStr}
-                              className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isUeberstunden ? 'status-ueberstunden' : ''} ${isUeberstundenBeantragt ? 'status-ueberstunden-beantragt' : ''} ${isUeberstundenAbgelehnt ? 'status-ueberstunden-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
                               onPointerDown={(e) => handleCellPointerDown(e, employee.id, dateStr)}
                               onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, dateStr)}
                               onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}

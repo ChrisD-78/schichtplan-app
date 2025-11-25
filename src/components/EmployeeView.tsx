@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee, EmployeeColor, Notification } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee, EmployeeColor, Notification, VacationRequestType } from '../types';
 
 // Color mapping function
 const getColorValue = (color: EmployeeColor | undefined): string => {
@@ -21,7 +21,7 @@ interface EmployeeViewProps {
   currentEmployeeId: string;
   currentWeekStart: string;
   onWeekChange: (direction: 'prev' | 'next') => void;
-  onVacationRequest: (employeeId: string, date: string) => void;
+  onVacationRequest: (employeeId: string, startDate: string, endDate: string, type: VacationRequestType) => void;
   notifications: Notification[];
   onMarkNotificationRead: (notificationId: string) => void;
 }
@@ -77,7 +77,9 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
 }) => {
   const currentEmployee = employees.find(e => e.id === currentEmployeeId);
   const [showVacationDialog, setShowVacationDialog] = useState(false);
-  const [vacationDate, setVacationDate] = useState('');
+  const [vacationStartDate, setVacationStartDate] = useState('');
+  const [vacationEndDate, setVacationEndDate] = useState('');
+  const [vacationType, setVacationType] = useState<'Urlaub' | 'Überstunden'>('Urlaub');
   const [showNotifications, setShowNotifications] = useState(false);
   
   const unreadNotifications = notifications.filter(n => !n.read);
@@ -127,9 +129,15 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
   };
 
   const handleSubmitVacationRequest = () => {
-    if (vacationDate) {
-      onVacationRequest(currentEmployeeId, vacationDate);
-      setVacationDate('');
+    if (vacationStartDate && vacationEndDate) {
+      if (new Date(vacationStartDate) > new Date(vacationEndDate)) {
+        alert('Das Enddatum muss nach dem Startdatum liegen!');
+        return;
+      }
+      onVacationRequest(currentEmployeeId, vacationStartDate, vacationEndDate, vacationType);
+      setVacationStartDate('');
+      setVacationEndDate('');
+      setVacationType('Urlaub');
       setShowVacationDialog(false);
     }
   };
@@ -206,15 +214,35 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
       {showVacationDialog && (
         <div className="vacation-dialog-overlay" onClick={() => setShowVacationDialog(false)}>
           <div className="vacation-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Urlaub beantragen</h2>
+            <h2>Urlaub / Überstunden beantragen</h2>
             <div className="dialog-content">
               <label>
-                Datum:
+                Art:
+                <select
+                  value={vacationType}
+                  onChange={(e) => setVacationType(e.target.value as 'Urlaub' | 'Überstunden')}
+                  className="vacation-type-select"
+                >
+                  <option value="Urlaub">Urlaub</option>
+                  <option value="Überstunden">Überstunden</option>
+                </select>
+              </label>
+              <label>
+                Von:
                 <input
                   type="date"
-                  value={vacationDate}
-                  onChange={(e) => setVacationDate(e.target.value)}
+                  value={vacationStartDate}
+                  onChange={(e) => setVacationStartDate(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
+                />
+              </label>
+              <label>
+                Bis:
+                <input
+                  type="date"
+                  value={vacationEndDate}
+                  onChange={(e) => setVacationEndDate(e.target.value)}
+                  min={vacationStartDate || new Date().toISOString().split('T')[0]}
                 />
               </label>
             </div>

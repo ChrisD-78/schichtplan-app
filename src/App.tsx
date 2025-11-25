@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdminView } from './components/AdminView';
 import { EmployeeView } from './components/EmployeeView';
-import { DaySchedule, Employee, VacationRequest, Notification } from './types';
+import { DaySchedule, Employee, VacationRequest, Notification, VacationRequestType } from './types';
 import './App.css';
 
 type ViewMode = 'admin' | 'employee';
@@ -178,7 +178,7 @@ function App() {
     setEmployees(newEmployees);
   };
 
-  const handleVacationRequest = (employeeId: string, date: string) => {
+  const handleVacationRequest = (employeeId: string, startDate: string, endDate: string, type: VacationRequestType) => {
     const employee = employees.find(e => e.id === employeeId);
     if (!employee) return;
 
@@ -186,34 +186,51 @@ function App() {
       id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       employeeId,
       employeeName: `${employee.firstName} ${employee.lastName}`,
-      date,
+      startDate,
+      endDate,
+      type,
       status: 'pending',
       requestedAt: new Date().toISOString()
     };
 
     setVacationRequests(prev => [...prev, request]);
 
-    // Update schedule to show requested vacation
+    // Update schedule to show requested vacation/overhours for all days in range
     const updatedSchedule = [...schedule];
-    let daySchedule = updatedSchedule.find(s => s.date === date);
-    if (!daySchedule) {
-      daySchedule = {
-        date,
-        shifts: {
-          'Halle': {},
-          'Kasse': {},
-          'Sauna': {},
-          'Reinigung': {},
-          'Gastro': {}
-        },
-        specialStatus: {}
-      };
-      updatedSchedule.push(daySchedule);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      let daySchedule = updatedSchedule.find(s => s.date === dateStr);
+      
+      if (!daySchedule) {
+        daySchedule = {
+          date: dateStr,
+          shifts: {
+            'Halle': {},
+            'Kasse': {},
+            'Sauna': {},
+            'Reinigung': {},
+            'Gastro': {}
+          },
+          specialStatus: {}
+        };
+        updatedSchedule.push(daySchedule);
+      }
+      
+      if (!daySchedule.specialStatus) {
+        daySchedule.specialStatus = {};
+      }
+      
+      // Set status based on type
+      if (type === 'Urlaub') {
+        daySchedule.specialStatus[employeeId] = 'Urlaub_beantragt';
+      } else {
+        daySchedule.specialStatus[employeeId] = 'Überstunden_beantragt';
+      }
     }
-    if (!daySchedule.specialStatus) {
-      daySchedule.specialStatus = {};
-    }
-    daySchedule.specialStatus[employeeId] = 'Urlaub_beantragt';
+    
     setSchedule(updatedSchedule);
   };
 
@@ -228,27 +245,44 @@ function App() {
     );
     setVacationRequests(updatedRequests);
 
-    // Update schedule
+    // Update schedule for all days in range
     const updatedSchedule = [...schedule];
-    let daySchedule = updatedSchedule.find(s => s.date === request.date);
-    if (daySchedule && daySchedule.specialStatus) {
-      if (approved) {
-        daySchedule.specialStatus[request.employeeId] = 'Urlaub_genehmigt';
-      } else {
-        daySchedule.specialStatus[request.employeeId] = 'Urlaub_abgelehnt';
+    const start = new Date(request.startDate);
+    const end = new Date(request.endDate);
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dateStr = d.toISOString().split('T')[0];
+      let daySchedule = updatedSchedule.find(s => s.date === dateStr);
+      
+      if (daySchedule && daySchedule.specialStatus) {
+        if (approved) {
+          if (request.type === 'Urlaub') {
+            daySchedule.specialStatus[request.employeeId] = 'Urlaub_genehmigt';
+          } else {
+            daySchedule.specialStatus[request.employeeId] = 'Überstunden_genehmigt';
+          }
+        } else {
+          if (request.type === 'Urlaub') {
+            daySchedule.specialStatus[request.employeeId] = 'Urlaub_abgelehnt';
+          } else {
+            daySchedule.specialStatus[request.employeeId] = 'Überstunden_abgelehnt';
+          }
+        }
       }
-      setSchedule(updatedSchedule);
     }
+    
+    setSchedule(updatedSchedule);
 
     // Create notification
+    const dateRange = `${new Date(request.startDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} - ${new Date(request.endDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
     const notification: Notification = {
       id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       employeeId: request.employeeId,
       type: approved ? 'vacation_approved' : 'vacation_rejected',
       message: approved 
-        ? `Ihr Urlaubsantrag für den ${new Date(request.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} wurde genehmigt.`
-        : `Ihr Urlaubsantrag für den ${new Date(request.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} wurde abgelehnt.`,
-      date: request.date,
+        ? `Ihr ${request.type === 'Urlaub' ? 'Urlaubs' : 'Überstunden'}antrag für ${dateRange} wurde genehmigt.`
+        : `Ihr ${request.type === 'Urlaub' ? 'Urlaubs' : 'Überstunden'}antrag für ${dateRange} wurde abgelehnt.`,
+      date: request.startDate,
       read: false,
       createdAt: new Date().toISOString()
     };

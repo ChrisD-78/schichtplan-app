@@ -2021,6 +2021,23 @@
   opacity: 0.7;
 }
 
+.employee-shift-cell.status-ueberstunden {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #312e81;
+}
+
+.employee-shift-cell.status-ueberstunden-beantragt {
+  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+  color: #5b21b6;
+  border: 2px dashed #8b5cf6;
+}
+
+.employee-shift-cell.status-ueberstunden-abgelehnt {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  opacity: 0.7;
+}
+
 .employee-shift-cell.status-krank {
   background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
   color: #991b1b;
@@ -2171,6 +2188,23 @@
 }
 
 .employee-shift-cell-month.status-urlaub-abgelehnt {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  opacity: 0.7;
+}
+
+.employee-shift-cell-month.status-ueberstunden {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #312e81;
+}
+
+.employee-shift-cell-month.status-ueberstunden-beantragt {
+  background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+  color: #5b21b6;
+  border: 2px dashed #8b5cf6;
+}
+
+.employee-shift-cell-month.status-ueberstunden-abgelehnt {
   background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
   color: #991b1b;
   opacity: 0.7;
@@ -2940,13 +2974,18 @@
   color: #333;
 }
 
-.dialog-content input[type="date"] {
+.dialog-content input[type="date"],
+.dialog-content select {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   font-size: 1rem;
   margin-top: 0.5rem;
+}
+
+.vacation-type-select {
+  font-weight: 600;
 }
 
 .employee-header-right {
@@ -3105,6 +3144,17 @@
 .vacation-date {
   color: #667eea;
   font-weight: 600;
+}
+
+.vacation-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-radius: 15px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
 }
 
 .vacation-requested-at {
