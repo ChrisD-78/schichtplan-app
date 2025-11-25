@@ -1091,6 +1091,40 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!isSelecting) return;
+      
+      // For touch devices, prevent default scrolling
+      if (e.pointerType === 'touch') {
+        e.preventDefault();
+      }
+      
+      // Find the cell under the pointer
+      const element = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      if (!element) return;
+      
+      const cell = element.closest('td[data-employee-id][data-date-str]') as HTMLElement | null;
+      if (!cell) return;
+      
+      const employeeId = cell.getAttribute('data-employee-id');
+      const dateStr = cell.getAttribute('data-date-str');
+      
+      if (!employeeId || !dateStr) return;
+      
+      selectionDragRef.current = true;
+      const key = getCellKey(employeeId, dateStr);
+      
+      setSelectedCells(prev => {
+        const newSet = new Set(prev);
+        if (selectionMode === 'remove') {
+          newSet.delete(key);
+        } else {
+          newSet.add(key);
+        }
+        return newSet;
+      });
+    };
+
     const handlePointerUpGlobal = () => {
       if (isSelecting) {
         setIsSelecting(false);
@@ -1110,13 +1144,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
     };
 
+    if (isSelecting) {
+      window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    }
     window.addEventListener('pointerup', handlePointerUpGlobal);
     window.addEventListener('pointercancel', handlePointerCancel);
     return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUpGlobal);
       window.removeEventListener('pointercancel', handlePointerCancel);
     };
-  }, [isSelecting]);
+  }, [isSelecting, selectionMode]);
 
   // Handle cell click for multi-day selection
   const handleCellClick = (e: React.MouseEvent, employeeId: string, dateStr: string) => {
@@ -1153,9 +1191,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     // Only handle primary button (left mouse button or touch)
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     
-    // For touch devices, prevent default scrolling during drag selection
+    // For touch devices, prevent default scrolling immediately
     if (e.pointerType === 'touch') {
       e.preventDefault();
+      e.stopPropagation();
     }
     
     selectionDragRef.current = false;
@@ -1164,8 +1203,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const key = getCellKey(employeeId, dateStr);
     const shouldRemove = selectedCells.has(key);
     setSelectionMode(shouldRemove ? 'remove' : 'add');
-    setIsSelecting(true);
-
+    
+    // Immediately mark the cell and start selection mode
     setSelectedCells(prev => {
       const newSet = new Set(prev);
       if (shouldRemove) {
@@ -1175,7 +1214,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       }
       return newSet;
     });
-
+    
+    setIsSelecting(true);
     setLastSelectedCell({ employeeId, dateStr });
     
     // Capture pointer for better touch support
@@ -1887,6 +1927,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         return (
                           <td 
                             key={day.date} 
+                            data-employee-id={employee.id}
+                            data-date-str={day.date}
                             className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
                             onPointerDown={(e) => handleCellPointerDown(e, employee.id, day.date)}
                             onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, day.date)}
@@ -2019,6 +2061,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           return (
                             <td 
                               key={dateStr} 
+                              data-employee-id={employee.id}
+                              data-date-str={dateStr}
                               className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
                               onPointerDown={(e) => handleCellPointerDown(e, employee.id, dateStr)}
                               onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, dateStr)}
