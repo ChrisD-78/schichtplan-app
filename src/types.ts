@@ -11,6 +11,7 @@ export interface Employee {
   email?: string;
   weeklyHours?: number;
   color?: EmployeeColor;
+  birthDate?: string; // Format: YYYY-MM-DD
 }
 
 export interface ShiftAssignment {

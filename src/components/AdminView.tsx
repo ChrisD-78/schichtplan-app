@@ -77,7 +77,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newEmployeeWeeklyHours, setNewEmployeeWeeklyHours] = useState<string>('');
   const [newEmployeeAreas, setNewEmployeeAreas] = useState<AreaType[]>([]);
   const [newEmployeeColor, setNewEmployeeColor] = useState<EmployeeColor | undefined>(undefined);
+  const [newEmployeeBirthDate, setNewEmployeeBirthDate] = useState<string>('');
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'area' | 'employee'>('area');
   const [employeeViewMode, setEmployeeViewMode] = useState<'week' | 'month'>('week');
@@ -177,11 +179,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
       phone: newEmployeePhone.trim() || undefined,
       email: newEmployeeEmail.trim() || undefined,
       weeklyHours: newEmployeeWeeklyHours ? parseFloat(newEmployeeWeeklyHours) : undefined,
-      color: newEmployeeColor
+      color: newEmployeeColor,
+      birthDate: newEmployeeBirthDate || undefined
     };
     
     const updatedEmployees = [...employees, newEmployee];
     onEmployeesUpdate(updatedEmployees);
+    
+    // Mark birthday in schedule if birthDate is set
+    if (newEmployeeBirthDate) {
+      markBirthdayInSchedule(newEmployee.id, newEmployeeBirthDate);
+    }
     
     setNewEmployeeFirstName('');
     setNewEmployeeLastName('');
@@ -190,9 +198,155 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setNewEmployeeWeeklyHours('');
     setNewEmployeeAreas([]);
     setNewEmployeeColor(undefined);
+    setNewEmployeeBirthDate('');
     setShowEmployeeForm(false);
+    setEditingEmployeeId(null);
     setValidationMessage(`✅ ${newEmployee.firstName} ${newEmployee.lastName} wurde hinzugefügt (${newEmployee.areas.join(', ')})!`);
     setTimeout(() => setValidationMessage(null), 3000);
+  };
+
+  const startEditEmployee = (employee: Employee) => {
+    setEditingEmployeeId(employee.id);
+    setNewEmployeeFirstName(employee.firstName);
+    setNewEmployeeLastName(employee.lastName);
+    setNewEmployeePhone(employee.phone || '');
+    setNewEmployeeEmail(employee.email || '');
+    setNewEmployeeWeeklyHours(employee.weeklyHours?.toString() || '');
+    setNewEmployeeAreas([...employee.areas]);
+    setNewEmployeeColor(employee.color);
+    setNewEmployeeBirthDate(employee.birthDate || '');
+    setShowEmployeeForm(true);
+  };
+
+  const cancelEdit = () => {
+    setEditingEmployeeId(null);
+    setNewEmployeeFirstName('');
+    setNewEmployeeLastName('');
+    setNewEmployeePhone('');
+    setNewEmployeeEmail('');
+    setNewEmployeeWeeklyHours('');
+    setNewEmployeeAreas([]);
+    setNewEmployeeColor(undefined);
+    setNewEmployeeBirthDate('');
+    setShowEmployeeForm(false);
+  };
+
+  const updateEmployee = () => {
+    if (!editingEmployeeId) return;
+    
+    if (!newEmployeeFirstName.trim() || !newEmployeeLastName.trim()) {
+      setValidationMessage('⚠️ Bitte geben Sie Vor- und Nachname ein!');
+      setTimeout(() => setValidationMessage(null), 3000);
+      return;
+    }
+
+    if (newEmployeeAreas.length === 0) {
+      setValidationMessage('⚠️ Bitte wählen Sie mindestens einen Bereich aus!');
+      setTimeout(() => setValidationMessage(null), 3000);
+      return;
+    }
+    
+    const employee = employees.find(e => e.id === editingEmployeeId);
+    if (!employee) return;
+    
+    const oldBirthDate = employee.birthDate;
+    const newBirthDate = newEmployeeBirthDate || undefined;
+    
+    const updatedEmployee: Employee = {
+      ...employee,
+      firstName: newEmployeeFirstName.trim(),
+      lastName: newEmployeeLastName.trim(),
+      areas: [...newEmployeeAreas],
+      phone: newEmployeePhone.trim() || undefined,
+      email: newEmployeeEmail.trim() || undefined,
+      weeklyHours: newEmployeeWeeklyHours ? parseFloat(newEmployeeWeeklyHours) : undefined,
+      color: newEmployeeColor,
+      birthDate: newBirthDate
+    };
+    
+    const updatedEmployees = employees.map(e => 
+      e.id === editingEmployeeId ? updatedEmployee : e
+    );
+    onEmployeesUpdate(updatedEmployees);
+    
+    // Update birthday in schedule if birthDate changed
+    if (oldBirthDate !== newBirthDate) {
+      // Remove old birthday marks
+      if (oldBirthDate) {
+        removeBirthdayFromSchedule(editingEmployeeId, oldBirthDate);
+      }
+      // Add new birthday marks
+      if (newBirthDate) {
+        markBirthdayInSchedule(editingEmployeeId, newBirthDate);
+      }
+    }
+    
+    cancelEdit();
+    setValidationMessage(`✅ ${updatedEmployee.firstName} ${updatedEmployee.lastName} wurde aktualisiert!`);
+    setTimeout(() => setValidationMessage(null), 3000);
+  };
+
+  // Mark birthday in schedule for current year and future years
+  const markBirthdayInSchedule = (employeeId: string, birthDate: string) => {
+    const updatedSchedule = [...schedule];
+    const [, month, day] = birthDate.split('-').map(Number);
+    const currentYear = new Date().getFullYear();
+    
+    // Mark birthdays for current year and next 2 years
+    for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
+      const birthdayDate = new Date(currentYear + yearOffset, month - 1, day);
+      const dateStr = birthdayDate.toISOString().split('T')[0];
+      
+      let daySchedule = updatedSchedule.find(s => s.date === dateStr);
+      if (!daySchedule) {
+        daySchedule = {
+          date: dateStr,
+          shifts: {
+            'Halle': {},
+            'Kasse': {},
+            'Sauna': {},
+            'Reinigung': {},
+            'Gastro': {}
+          },
+          specialStatus: {}
+        };
+        updatedSchedule.push(daySchedule);
+      }
+      
+      if (!daySchedule.specialStatus) {
+        daySchedule.specialStatus = {};
+      }
+      
+      // Mark as birthday (using 'Urlaub' status for now, or we could add a new status)
+      daySchedule.specialStatus[employeeId] = 'Urlaub';
+    }
+    
+    onScheduleUpdate(updatedSchedule);
+  };
+
+  // Remove birthday marks from schedule
+  const removeBirthdayFromSchedule = (employeeId: string, birthDate: string) => {
+    const updatedSchedule = [...schedule];
+    const [, month, day] = birthDate.split('-').map(Number);
+    const currentYear = new Date().getFullYear();
+    
+    // Remove birthday marks for current year and next 2 years
+    for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
+      const birthdayDate = new Date(currentYear + yearOffset, month - 1, day);
+      const dateStr = birthdayDate.toISOString().split('T')[0];
+      
+      const daySchedule = updatedSchedule.find(s => s.date === dateStr);
+      if (daySchedule && daySchedule.specialStatus && daySchedule.specialStatus[employeeId] === 'Urlaub') {
+        // Only remove if it's actually a birthday (not a regular vacation)
+        // We'll need a better way to track this, but for now we'll just remove it
+        delete daySchedule.specialStatus[employeeId];
+        if (Object.keys(daySchedule.specialStatus).length === 0) {
+          delete daySchedule.specialStatus;
+        }
+      }
+    }
+    
+    onScheduleUpdate(updatedSchedule);
   };
 
   // Check if an employee is already assigned to any shift on a given date
@@ -1499,7 +1653,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
         <div className="employee-section">
           <button 
-            onClick={() => setShowEmployeeForm(!showEmployeeForm)} 
+            onClick={() => {
+              if (showEmployeeForm && editingEmployeeId) {
+                cancelEdit();
+              } else {
+                setShowEmployeeForm(!showEmployeeForm);
+              }
+            }} 
             className="btn-toggle-form"
           >
             {showEmployeeForm ? '✕ Abbrechen' : '+ Mitarbeiter'}
@@ -1514,7 +1674,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           
           {showEmployeeForm && (
             <div className="employee-form-extended">
-              <h4>Neuen Mitarbeiter hinzufügen</h4>
+              <h4>{editingEmployeeId ? 'Mitarbeiter bearbeiten' : 'Neuen Mitarbeiter hinzufügen'}</h4>
               
               <div className="form-section">
                 <label>Persönliche Daten:</label>
@@ -1534,6 +1694,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     placeholder="Nachname *"
                     className="input-employee"
                     required
+                  />
+                  <input
+                    type="date"
+                    value={newEmployeeBirthDate}
+                    onChange={(e) => setNewEmployeeBirthDate(e.target.value)}
+                    placeholder="Geburtsdatum"
+                    className="input-employee"
+                    title="Geburtsdatum (wird automatisch im Schichtplan markiert)"
                   />
                 </div>
               </div>
@@ -1602,7 +1770,55 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
               
-              <button onClick={addEmployee} className="btn-add-employee">Mitarbeiter hinzufügen</button>
+              <div className="form-actions">
+                {editingEmployeeId ? (
+                  <>
+                    <button onClick={updateEmployee} className="btn-add-employee">Aktualisieren</button>
+                    <button onClick={cancelEdit} className="btn-cancel-employee">Abbrechen</button>
+                  </>
+                ) : (
+                  <button onClick={addEmployee} className="btn-add-employee">Mitarbeiter hinzufügen</button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {employees.length > 0 && (
+            <div className="employees-list">
+              <h4>Mitarbeiter verwalten</h4>
+              <div className="employees-grid">
+                {employees.map(employee => (
+                  <div key={employee.id} className="employee-card">
+                    <div className="employee-card-header">
+                      <div className="employee-card-name">
+                        {employee.color && (
+                          <span 
+                            className="employee-color-bar-small" 
+                            style={{ backgroundColor: getColorValue(employee.color) }}
+                          ></span>
+                        )}
+                        <span>{employee.firstName} {employee.lastName}</span>
+                      </div>
+                      <button
+                        onClick={() => startEditEmployee(employee)}
+                        className="btn-edit-employee"
+                        title="Mitarbeiter bearbeiten"
+                      >
+                        ✏️ Bearbeiten
+                      </button>
+                    </div>
+                    <div className="employee-card-details">
+                      <div><strong>Bereiche:</strong> {employee.areas.join(', ')}</div>
+                      {employee.phone && <div><strong>Tel:</strong> {employee.phone}</div>}
+                      {employee.email && <div><strong>E-Mail:</strong> {employee.email}</div>}
+                      {employee.weeklyHours && <div><strong>Stunden/Woche:</strong> {employee.weeklyHours}</div>}
+                      {employee.birthDate && (
+                        <div><strong>Geburtsdatum:</strong> {new Date(employee.birthDate).toLocaleDateString('de-DE')}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

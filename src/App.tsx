@@ -170,6 +170,56 @@ function App() {
     localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(notifications));
   }, [notifications]);
 
+  // Mark birthdays in schedule when employees are loaded or updated
+  useEffect(() => {
+    const updatedSchedule = [...schedule];
+    const currentYear = new Date().getFullYear();
+    let scheduleChanged = false;
+
+    employees.forEach(employee => {
+      if (employee.birthDate) {
+        const [, month, day] = employee.birthDate.split('-').map(Number);
+        
+        // Mark birthdays for current year and next 2 years
+        for (let yearOffset = 0; yearOffset < 3; yearOffset++) {
+          const birthdayDate = new Date(currentYear + yearOffset, month - 1, day);
+          const dateStr = birthdayDate.toISOString().split('T')[0];
+          
+          let daySchedule = updatedSchedule.find(s => s.date === dateStr);
+          if (!daySchedule) {
+            daySchedule = {
+              date: dateStr,
+              shifts: {
+                'Halle': {},
+                'Kasse': {},
+                'Sauna': {},
+                'Reinigung': {},
+                'Gastro': {}
+              },
+              specialStatus: {}
+            };
+            updatedSchedule.push(daySchedule);
+            scheduleChanged = true;
+          }
+          
+          if (!daySchedule.specialStatus) {
+            daySchedule.specialStatus = {};
+          }
+          
+          // Only mark if not already marked (don't overwrite existing status)
+          if (!daySchedule.specialStatus[employee.id]) {
+            daySchedule.specialStatus[employee.id] = 'Urlaub';
+            scheduleChanged = true;
+          }
+        }
+      }
+    });
+
+    if (scheduleChanged) {
+      setSchedule(updatedSchedule);
+    }
+  }, [employees]); // Only run when employees change
+
   const handleScheduleUpdate = (newSchedule: DaySchedule[]) => {
     setSchedule(newSchedule);
   };
