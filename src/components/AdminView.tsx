@@ -121,6 +121,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const skipClickRef = useRef(false);
   
   // Week copy dialog state
+  // Filter state for employee view
+  const [filterArea, setFilterArea] = useState<AreaType | 'all'>('all');
+  const [filterName, setFilterName] = useState<string>('');
+  const [filterColor, setFilterColor] = useState<EmployeeColor | 'all'>('all');
+  
   const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false);
   const [copySourceWeek, setCopySourceWeek] = useState<string>(currentWeekStart);
   const [copyTargetWeek, setCopyTargetWeek] = useState<string>(() => {
@@ -573,6 +578,32 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return Array.from(selectedCells)
       .filter(key => key.startsWith(`${employeeId}|`))
       .map(key => key.split('|')[1]);
+  };
+
+  // Filter employees based on filter criteria
+  const getFilteredEmployees = () => {
+    return employees.filter(employee => {
+      // Filter by area
+      if (filterArea !== 'all' && !employee.areas.includes(filterArea)) {
+        return false;
+      }
+      
+      // Filter by name
+      if (filterName.trim() !== '') {
+        const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+        const searchTerm = filterName.toLowerCase();
+        if (!fullName.includes(searchTerm)) {
+          return false;
+        }
+      }
+      
+      // Filter by color
+      if (filterColor !== 'all' && employee.color !== filterColor) {
+        return false;
+      }
+      
+      return true;
+    });
   };
 
   const multiSelectTooltip = "Klick: Feld wählen/entfernen | Strg/Cmd optional | Shift+Klick (gleicher Mitarbeiter): Bereich | Gedrückt halten & ziehen zum Markieren";
@@ -1663,6 +1694,60 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </button>
           </div>
 
+          <div className="employee-filters">
+            <div className="filter-group">
+              <label>Einsatzbereich:</label>
+              <select 
+                value={filterArea} 
+                onChange={(e) => setFilterArea(e.target.value as AreaType | 'all')}
+                className="filter-select"
+              >
+                <option value="all">Alle</option>
+                {AREAS.map(area => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="filter-group">
+              <label>Name:</label>
+              <input
+                type="text"
+                value={filterName}
+                onChange={(e) => setFilterName(e.target.value)}
+                placeholder="Name suchen..."
+                className="filter-input"
+              />
+            </div>
+            
+            <div className="filter-group">
+              <label>Farbe:</label>
+              <select 
+                value={filterColor} 
+                onChange={(e) => setFilterColor(e.target.value as EmployeeColor | 'all')}
+                className="filter-select"
+              >
+                <option value="all">Alle</option>
+                <option value="Rot">Rot</option>
+                <option value="Braun">Braun</option>
+                <option value="Schwarz">Schwarz</option>
+                <option value="Grün">Grün</option>
+                <option value="Violett">Violett</option>
+              </select>
+            </div>
+            
+            <button 
+              className="btn-clear-filters"
+              onClick={() => {
+                setFilterArea('all');
+                setFilterName('');
+                setFilterColor('all');
+              }}
+            >
+              Filter zurücksetzen
+            </button>
+          </div>
+
           {employeeViewMode === 'week' ? (
             <>
               <div className="week-navigation-employee">
@@ -1944,7 +2029,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map(employee => (
+                  {getFilteredEmployees().map(employee => (
                     <tr key={employee.id}>
                       <td className="employee-name-cell">
                         <div className="employee-name-with-color">
@@ -2077,7 +2162,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map(employee => (
+                  {getFilteredEmployees().map(employee => (
                     <tr key={employee.id}>
                       <td className="employee-name-cell">
                         <div className="employee-name-with-color">
