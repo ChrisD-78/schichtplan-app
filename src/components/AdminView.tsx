@@ -1836,7 +1836,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
             <div className="palette-hint">
-              💡 Tipp: Ziehen Sie eine Schicht auf eine Zelle oder klicken Sie bei markierten Feldern auf den Button, um alle ausgewählten Tage zu belegen. Ziehen Sie erneut auf eine belegte Zelle, um sie zu entfernen.
             </div>
           </div>
 
