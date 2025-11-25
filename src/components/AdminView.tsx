@@ -80,6 +80,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newEmployeeBirthDate, setNewEmployeeBirthDate] = useState<string>('');
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
+  const [showEmployeeManagement, setShowEmployeeManagement] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'area' | 'employee'>('area');
   const [employeeViewMode, setEmployeeViewMode] = useState<'week' | 'month'>('week');
@@ -1658,11 +1659,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 cancelEdit();
               } else {
                 setShowEmployeeForm(!showEmployeeForm);
+                setShowEmployeeManagement(false);
               }
             }} 
             className="btn-toggle-form"
           >
             {showEmployeeForm ? '✕ Abbrechen' : '+ Mitarbeiter'}
+          </button>
+          
+          <button 
+            onClick={() => {
+              setShowEmployeeManagement(!showEmployeeManagement);
+              setShowEmployeeForm(false);
+              setEditingEmployeeId(null);
+            }} 
+            className="btn-manage-employees"
+          >
+            {showEmployeeManagement ? '✕ Schließen' : '👥 Mitarbeiter verwalten'}
           </button>
           
           <button 
@@ -1783,46 +1796,69 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           )}
 
-          {employees.length > 0 && (
-            <div className="employees-list">
-              <h4>Mitarbeiter verwalten</h4>
-              <div className="employees-grid">
+        </div>
+      </div>
+
+      {showEmployeeManagement && (
+        <div className="employee-management-panel">
+          <h2>👥 Mitarbeiter verwalten</h2>
+          <div className="employee-management-table-wrapper">
+            <table className="employee-management-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Farbe</th>
+                  <th>Bereiche</th>
+                  <th>Telefon</th>
+                  <th>E-Mail</th>
+                  <th>Stunden/Woche</th>
+                  <th>Geburtsdatum</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
                 {employees.map(employee => (
-                  <div key={employee.id} className="employee-card">
-                    <div className="employee-card-header">
-                      <div className="employee-card-name">
-                        {employee.color && (
-                          <span 
-                            className="employee-color-bar-small" 
-                            style={{ backgroundColor: getColorValue(employee.color) }}
-                          ></span>
-                        )}
-                        <span>{employee.firstName} {employee.lastName}</span>
-                      </div>
+                  <tr key={employee.id}>
+                    <td>
+                      {employee.firstName} {employee.lastName}
+                    </td>
+                    <td>
+                      {employee.color && (
+                        <span 
+                          className="employee-color-indicator" 
+                          style={{ backgroundColor: getColorValue(employee.color) }}
+                          title={employee.color}
+                        ></span>
+                      )}
+                    </td>
+                    <td>{employee.areas.join(', ')}</td>
+                    <td>{employee.phone || '—'}</td>
+                    <td>{employee.email || '—'}</td>
+                    <td>{employee.weeklyHours || '—'}</td>
+                    <td>
+                      {employee.birthDate 
+                        ? new Date(employee.birthDate).toLocaleDateString('de-DE')
+                        : '—'}
+                    </td>
+                    <td>
                       <button
-                        onClick={() => startEditEmployee(employee)}
-                        className="btn-edit-employee"
+                        onClick={() => {
+                          startEditEmployee(employee);
+                          setShowEmployeeManagement(false);
+                        }}
+                        className="btn-edit-in-table"
                         title="Mitarbeiter bearbeiten"
                       >
                         ✏️ Bearbeiten
                       </button>
-                    </div>
-                    <div className="employee-card-details">
-                      <div><strong>Bereiche:</strong> {employee.areas.join(', ')}</div>
-                      {employee.phone && <div><strong>Tel:</strong> {employee.phone}</div>}
-                      {employee.email && <div><strong>E-Mail:</strong> {employee.email}</div>}
-                      {employee.weeklyHours && <div><strong>Stunden/Woche:</strong> {employee.weeklyHours}</div>}
-                      {employee.birthDate && (
-                        <div><strong>Geburtsdatum:</strong> {new Date(employee.birthDate).toLocaleDateString('de-DE')}</div>
-                      )}
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       {showBulkAssignment && (
         <div className="bulk-assignment-panel">
