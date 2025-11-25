@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdminView } from './components/AdminView';
 import { EmployeeView } from './components/EmployeeView';
-import { DaySchedule, Employee } from './types';
+import { DaySchedule, Employee, VacationRequest, Notification } from './types';
 import './App.css';
 
 type ViewMode = 'admin' | 'employee';
@@ -11,6 +11,8 @@ const STORAGE_KEY_EMPLOYEES = 'schichtplan_employees';
 const STORAGE_KEY_VIEW = 'schichtplan_view';
 const STORAGE_KEY_CURRENT_EMPLOYEE = 'schichtplan_current_employee';
 const STORAGE_KEY_CURRENT_WEEK = 'schichtplan_current_week';
+const STORAGE_KEY_VACATION_REQUESTS = 'schichtplan_vacation_requests';
+const STORAGE_KEY_NOTIFICATIONS = 'schichtplan_notifications';
 
 // Helper function to get Monday of a given week
 const getMondayOfWeek = (date: Date): Date => {
@@ -96,6 +98,32 @@ const getInitialEmployees = (): Employee[] => {
   ];
 };
 
+const getInitialVacationRequests = (): VacationRequest[] => {
+  const saved = localStorage.getItem(STORAGE_KEY_VACATION_REQUESTS);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error parsing vacation requests:', e);
+      localStorage.removeItem(STORAGE_KEY_VACATION_REQUESTS);
+    }
+  }
+  return [];
+};
+
+const getInitialNotifications = (): Notification[] => {
+  const saved = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error parsing notifications:', e);
+      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
+    }
+  }
+  return [];
+};
+
 function App() {
   const [viewMode, setViewMode] = useState<ViewMode>(
     (localStorage.getItem(STORAGE_KEY_VIEW) as ViewMode) || 'admin'
@@ -110,6 +138,8 @@ function App() {
     if (saved) return saved;
     return getMondayOfWeek(new Date()).toISOString().split('T')[0];
   });
+  const [vacationRequests, setVacationRequests] = useState<VacationRequest[]>(getInitialVacationRequests);
+  const [notifications, setNotifications] = useState<Notification[]>(getInitialNotifications);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
@@ -132,12 +162,103 @@ function App() {
     localStorage.setItem(STORAGE_KEY_CURRENT_WEEK, currentWeekStart);
   }, [currentWeekStart]);
 
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_VACATION_REQUESTS, JSON.stringify(vacationRequests));
+  }, [vacationRequests]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(notifications));
+  }, [notifications]);
+
   const handleScheduleUpdate = (newSchedule: DaySchedule[]) => {
     setSchedule(newSchedule);
   };
 
   const handleEmployeesUpdate = (newEmployees: Employee[]) => {
     setEmployees(newEmployees);
+  };
+
+  const handleVacationRequest = (employeeId: string, date: string) => {
+    const employee = employees.find(e => e.id === employeeId);
+    if (!employee) return;
+
+    const request: VacationRequest = {
+      id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      employeeId,
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      date,
+      status: 'pending',
+      requestedAt: new Date().toISOString()
+    };
+
+    setVacationRequests(prev => [...prev, request]);
+
+    // Update schedule to show requested vacation
+    const updatedSchedule = [...schedule];
+    let daySchedule = updatedSchedule.find(s => s.date === date);
+    if (!daySchedule) {
+      daySchedule = {
+        date,
+        shifts: {
+          'Halle': {},
+          'Kasse': {},
+          'Sauna': {},
+          'Reinigung': {},
+          'Gastro': {}
+        },
+        specialStatus: {}
+      };
+      updatedSchedule.push(daySchedule);
+    }
+    if (!daySchedule.specialStatus) {
+      daySchedule.specialStatus = {};
+    }
+    daySchedule.specialStatus[employeeId] = 'Urlaub_beantragt';
+    setSchedule(updatedSchedule);
+  };
+
+  const handleVacationDecision = (requestId: string, approved: boolean, reviewedBy: string = 'Admin') => {
+    const request = vacationRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const updatedRequests: VacationRequest[] = vacationRequests.map(r => 
+      r.id === requestId 
+        ? { ...r, status: approved ? 'approved' as const : 'rejected' as const, reviewedAt: new Date().toISOString(), reviewedBy }
+        : r
+    );
+    setVacationRequests(updatedRequests);
+
+    // Update schedule
+    const updatedSchedule = [...schedule];
+    let daySchedule = updatedSchedule.find(s => s.date === request.date);
+    if (daySchedule && daySchedule.specialStatus) {
+      if (approved) {
+        daySchedule.specialStatus[request.employeeId] = 'Urlaub_genehmigt';
+      } else {
+        daySchedule.specialStatus[request.employeeId] = 'Urlaub_abgelehnt';
+      }
+      setSchedule(updatedSchedule);
+    }
+
+    // Create notification
+    const notification: Notification = {
+      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      employeeId: request.employeeId,
+      type: approved ? 'vacation_approved' : 'vacation_rejected',
+      message: approved 
+        ? `Ihr Urlaubsantrag für den ${new Date(request.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} wurde genehmigt.`
+        : `Ihr Urlaubsantrag für den ${new Date(request.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} wurde abgelehnt.`,
+      date: request.date,
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    setNotifications(prev => [...prev, notification]);
+  };
+
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    );
   };
 
   const switchView = (mode: ViewMode) => {
@@ -224,6 +345,8 @@ function App() {
             onScheduleUpdate={handleScheduleUpdate}
             onEmployeesUpdate={handleEmployeesUpdate}
             onWeekChange={changeWeek}
+            vacationRequests={vacationRequests}
+            onVacationDecision={handleVacationDecision}
           />
         ) : (
           <EmployeeView
@@ -233,6 +356,9 @@ function App() {
             currentEmployeeId={currentEmployeeId}
             currentWeekStart={currentWeekStart}
             onWeekChange={changeWeek}
+            onVacationRequest={handleVacationRequest}
+            notifications={notifications.filter(n => n.employeeId === currentEmployeeId)}
+            onMarkNotificationRead={markNotificationAsRead}
           />
         )}
       </main>

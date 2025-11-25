@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus, EmployeeColor } from '../types';
+import { ShiftType, AreaType, DaySchedule, Employee, SpecialStatus, EmployeeColor, VacationRequest } from '../types';
 
 interface AdminViewProps {
   schedule: DaySchedule[];
@@ -9,6 +9,8 @@ interface AdminViewProps {
   onScheduleUpdate: (schedule: DaySchedule[]) => void;
   onEmployeesUpdate: (employees: Employee[]) => void;
   onWeekChange: (direction: 'prev' | 'next') => void;
+  vacationRequests: VacationRequest[];
+  onVacationDecision: (requestId: string, approved: boolean, reviewedBy?: string) => void;
 }
 
 const SHIFT_TYPES: ShiftType[] = ['Frühschicht', 'Mittelschicht', 'Spätschicht'];
@@ -64,7 +66,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   currentWeekStart,
   onScheduleUpdate,
   onEmployeesUpdate,
-  onWeekChange 
+  onWeekChange,
+  vacationRequests,
+  onVacationDecision
 }) => {
   const [newEmployeeFirstName, setNewEmployeeFirstName] = useState('');
   const [newEmployeeLastName, setNewEmployeeLastName] = useState('');
@@ -333,14 +337,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
       daySchedule.specialStatus = {};
     }
 
-    // If assigning Urlaub or Krank, remove all regular shifts and set special status
-    if (shiftType === 'Urlaub' || shiftType === 'Krank') {
+    // If assigning Urlaub, Krank, or any vacation status, remove all regular shifts and set special status
+    if (shiftType === 'Urlaub' || shiftType === 'Krank' || 
+        shiftType === 'Urlaub_beantragt' || shiftType === 'Urlaub_genehmigt' || shiftType === 'Urlaub_abgelehnt') {
       // Remove employee from all regular shifts on this date
       AREAS.forEach(area => {
         SHIFT_TYPES.forEach(shift => {
           if (daySchedule.shifts[area]?.[shift]) {
             daySchedule.shifts[area][shift] = daySchedule.shifts[area][shift]!.filter(
-              a => a.employeeId !== employeeId
+              (a: any) => a.employeeId !== employeeId
             );
           }
         });
@@ -719,7 +724,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     // Check for special status (Urlaub/Krank) first
     if (daySchedule.specialStatus?.[employeeId]) {
       const status = daySchedule.specialStatus[employeeId];
-      if (status === 'Urlaub') shifts.push('U');
+      if (status === 'Urlaub' || status === 'Urlaub_genehmigt') shifts.push('U');
+      else if (status === 'Urlaub_beantragt') shifts.push('U_beantragt');
+      else if (status === 'Urlaub_abgelehnt') shifts.push('U_abgelehnt');
       else if (status === 'Krank') shifts.push('K');
       return shifts; // If special status, don't show regular shifts
     }
@@ -1377,6 +1384,53 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </button>
         </div>
 
+        {vacationRequests.length > 0 && (
+          <div className="vacation-requests-section">
+            <h2>🏖️ Urlaubsanträge ({vacationRequests.filter(r => r.status === 'pending').length} offen)</h2>
+            <div className="vacation-requests-list">
+              {vacationRequests
+                .filter(r => r.status === 'pending')
+                .map(request => (
+                  <div key={request.id} className="vacation-request-item">
+                    <div className="vacation-request-info">
+                      <strong>{request.employeeName}</strong>
+                      <span className="vacation-date">
+                        {new Date(request.date).toLocaleDateString('de-DE', { 
+                          weekday: 'long',
+                          day: '2-digit', 
+                          month: '2-digit',
+                          year: 'numeric'
+                        })}
+                      </span>
+                      <span className="vacation-requested-at">
+                        Beantragt: {new Date(request.requestedAt).toLocaleDateString('de-DE', { 
+                          day: '2-digit', 
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <div className="vacation-request-actions">
+                      <button 
+                        className="btn-approve"
+                        onClick={() => onVacationDecision(request.id, true)}
+                      >
+                        ✅ Genehmigen
+                      </button>
+                      <button 
+                        className="btn-reject"
+                        onClick={() => onVacationDecision(request.id, false)}
+                      >
+                        ❌ Ablehnen
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
         <div className="employee-section">
           <button 
             onClick={() => setShowEmployeeForm(!showEmployeeForm)} 
@@ -1894,7 +1948,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       {weekSchedule.map(day => {
                         const shifts = getEmployeeShiftsForDate(employee.id, day.date);
                         const hasShift = shifts.length > 0;
-                        const isUrlaub = shifts.includes('U');
+                        const isUrlaub = shifts.includes('U') || shifts.includes('U_beantragt') || shifts.includes('U_abgelehnt');
+                        const isUrlaubBeantragt = shifts.includes('U_beantragt');
+                        const isUrlaubAbgelehnt = shifts.includes('U_abgelehnt');
                         const isKrank = shifts.includes('K');
                         const isSelected = selectedCells.has(getCellKey(employee.id, day.date));
                         const isHovered = hoveredDropCell?.employeeId === employee.id && hoveredDropCell?.dateStr === day.date;
@@ -1929,7 +1985,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             key={day.date} 
                             data-employee-id={employee.id}
                             data-date-str={day.date}
-                            className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
+                            className={`employee-shift-cell ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''}`}
                             onPointerDown={(e) => handleCellPointerDown(e, employee.id, day.date)}
                             onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, day.date)}
                             onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, day.date)}
@@ -2024,7 +2080,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         return monthDates.map(dateStr => {
                           const shifts = getEmployeeShiftsForDate(employee.id, dateStr);
                           const hasShift = shifts.length > 0;
-                          const isUrlaub = shifts.includes('U');
+                          const isUrlaub = shifts.includes('U') || shifts.includes('U_beantragt') || shifts.includes('U_abgelehnt');
+                          const isUrlaubBeantragt = shifts.includes('U_beantragt');
+                          const isUrlaubAbgelehnt = shifts.includes('U_abgelehnt');
                           const isKrank = shifts.includes('K');
                           const isSelected = selectedCells.has(getCellKey(employee.id, dateStr));
                           const date = new Date(dateStr);
@@ -2063,7 +2121,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                               key={dateStr} 
                               data-employee-id={employee.id}
                               data-date-str={dateStr}
-                              className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
+                              className={`employee-shift-cell-month ${(draggedShiftType || draggedShiftFromCell) ? 'drop-zone-active' : ''} ${isHovered ? 'drop-zone-hovered' : ''} ${isInSelectedGroup ? 'drop-zone-selected-group' : ''} ${isUrlaub ? 'status-urlaub' : ''} ${isUrlaubBeantragt ? 'status-urlaub-beantragt' : ''} ${isUrlaubAbgelehnt ? 'status-urlaub-abgelehnt' : ''} ${isKrank ? 'status-krank' : ''} ${isSelected ? 'cell-selected' : ''} ${isWeekend ? 'weekend' : ''}`}
                               onPointerDown={(e) => handleCellPointerDown(e, employee.id, dateStr)}
                               onPointerEnter={(e) => handleCellPointerEnter(e, employee.id, dateStr)}
                               onDragOver={(e) => handleEmployeeViewDragOver(e, employee.id, dateStr)}

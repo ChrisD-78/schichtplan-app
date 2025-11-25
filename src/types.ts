@@ -26,7 +26,30 @@ export interface Shift {
   assignments: ShiftAssignment[];
 }
 
-export type SpecialStatus = 'Urlaub' | 'Krank';
+export type SpecialStatus = 'Urlaub' | 'Krank' | 'Urlaub_beantragt' | 'Urlaub_genehmigt' | 'Urlaub_abgelehnt';
+
+export type VacationRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface VacationRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  status: VacationRequestStatus;
+  requestedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface Notification {
+  id: string;
+  employeeId: string;
+  type: 'vacation_approved' | 'vacation_rejected';
+  message: string;
+  date: string;
+  read: boolean;
+  createdAt: string;
+}
 
 export interface DaySchedule {
   date: string;

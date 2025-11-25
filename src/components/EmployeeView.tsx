@@ -1,5 +1,5 @@
-import React from 'react';
-import { ShiftType, AreaType, DaySchedule, Employee, EmployeeColor } from '../types';
+import React, { useState } from 'react';
+import { ShiftType, AreaType, DaySchedule, Employee, EmployeeColor, Notification } from '../types';
 
 // Color mapping function
 const getColorValue = (color: EmployeeColor | undefined): string => {
@@ -21,6 +21,9 @@ interface EmployeeViewProps {
   currentEmployeeId: string;
   currentWeekStart: string;
   onWeekChange: (direction: 'prev' | 'next') => void;
+  onVacationRequest: (employeeId: string, date: string) => void;
+  notifications: Notification[];
+  onMarkNotificationRead: (notificationId: string) => void;
 }
 
 const SHIFT_TYPES: ShiftType[] = ['Frühschicht', 'Mittelschicht', 'Spätschicht'];
@@ -67,9 +70,17 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
   employees, 
   currentEmployeeId,
   currentWeekStart,
-  onWeekChange 
+  onWeekChange,
+  onVacationRequest,
+  notifications,
+  onMarkNotificationRead
 }) => {
   const currentEmployee = employees.find(e => e.id === currentEmployeeId);
+  const [showVacationDialog, setShowVacationDialog] = useState(false);
+  const [vacationDate, setVacationDate] = useState('');
+  const [showNotifications, setShowNotifications] = useState(false);
+  
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   const getMyWeekShifts = () => {
     const myShifts: Array<{ 
@@ -115,29 +126,109 @@ export const EmployeeView: React.FC<EmployeeViewProps> = ({
     return assignmentCount < minRequired;
   };
 
+  const handleSubmitVacationRequest = () => {
+    if (vacationDate) {
+      onVacationRequest(currentEmployeeId, vacationDate);
+      setVacationDate('');
+      setShowVacationDialog(false);
+    }
+  };
+
   return (
     <div className="employee-view">
       <div className="employee-header">
         <h1>👤 Meine Schichten</h1>
-        <div className="employee-name">
-          {currentEmployee ? (
-            <div className="employee-name-with-color">
-              {currentEmployee.color && (
-                <span 
-                  className="employee-color-bar" 
-                  style={{ backgroundColor: getColorValue(currentEmployee.color) }}
-                  title={currentEmployee.color}
-                ></span>
+        <div className="employee-header-right">
+          <div className="employee-name">
+            {currentEmployee ? (
+              <div className="employee-name-with-color">
+                {currentEmployee.color && (
+                  <span 
+                    className="employee-color-bar" 
+                    style={{ backgroundColor: getColorValue(currentEmployee.color) }}
+                    title={currentEmployee.color}
+                  ></span>
+                )}
+                <span className="employee-name-text">
+                  {currentEmployee.firstName} {currentEmployee.lastName}
+                </span>
+              </div>
+            ) : (
+              'Mitarbeiter'
+            )}
+          </div>
+          <div className="header-actions">
+            <button 
+              className="btn-vacation-request"
+              onClick={() => setShowVacationDialog(true)}
+            >
+              🏖️ Urlaub beantragen
+            </button>
+            <div className="notifications-container">
+              <button 
+                className="btn-notifications"
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                🔔 {unreadNotifications.length > 0 && (
+                  <span className="notification-badge">{unreadNotifications.length}</span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="notifications-dropdown">
+                  {notifications.length === 0 ? (
+                    <div className="notification-item">Keine Benachrichtigungen</div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id} 
+                        className={`notification-item ${!notif.read ? 'unread' : ''}`}
+                        onClick={() => onMarkNotificationRead(notif.id)}
+                      >
+                        <div className="notification-message">{notif.message}</div>
+                        <div className="notification-date">
+                          {new Date(notif.createdAt).toLocaleDateString('de-DE', { 
+                            day: '2-digit', 
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
-              <span className="employee-name-text">
-                {currentEmployee.firstName} {currentEmployee.lastName}
-              </span>
             </div>
-          ) : (
-            'Mitarbeiter'
-          )}
+          </div>
         </div>
       </div>
+
+      {showVacationDialog && (
+        <div className="vacation-dialog-overlay" onClick={() => setShowVacationDialog(false)}>
+          <div className="vacation-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Urlaub beantragen</h2>
+            <div className="dialog-content">
+              <label>
+                Datum:
+                <input
+                  type="date"
+                  value={vacationDate}
+                  onChange={(e) => setVacationDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                />
+              </label>
+            </div>
+            <div className="dialog-actions">
+              <button className="btn-dialog-confirm" onClick={handleSubmitVacationRequest}>
+                Beantragen
+              </button>
+              <button className="btn-dialog-cancel" onClick={() => setShowVacationDialog(false)}>
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="week-navigation">
         <button onClick={() => onWeekChange('prev')} className="btn-week-nav">
